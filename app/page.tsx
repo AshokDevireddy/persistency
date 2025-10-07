@@ -8,7 +8,7 @@ import LapseSection from '@/components/LapseSection';
 import { Policy } from '@/components/LapseTable';
 import { BarChart3, TrendingUp } from 'lucide-react';
 
-export type CarrierType = 'american-amicable' | 'combined';
+export type CarrierType = 'american-amicable' | 'combined' | 'aflac' | 'aetna';
 
 export interface TimeRangeAnalysis {
   positivePercentage: number;
@@ -45,6 +45,8 @@ export default function Home() {
   const [files, setFiles] = useState<Record<CarrierType, File | null>>({
     'american-amicable': null,
     'combined': null,
+    'aflac': null,
+    'aetna': null,
   });
   const [results, setResults] = useState<PersistencyResult[] | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -133,11 +135,11 @@ export default function Home() {
               Upload Carrier Data
             </h2>
             <p className="text-slate-600">
-              Upload CSV files for each carrier to analyze persistency rates
+              Upload CSV or Excel files for each carrier to analyze persistency rates
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <FileUpload
               carrier="american-amicable"
               label="American Amicable"
@@ -149,6 +151,18 @@ export default function Home() {
               label="Combined Insurance"
               onFileChange={handleFileChange}
               file={files['combined']}
+            />
+            <FileUpload
+              carrier="aflac"
+              label="Aflac"
+              onFileChange={handleFileChange}
+              file={files['aflac']}
+            />
+            <FileUpload
+              carrier="aetna"
+              label="Aetna"
+              onFileChange={handleFileChange}
+              file={files['aetna']}
             />
           </div>
 
