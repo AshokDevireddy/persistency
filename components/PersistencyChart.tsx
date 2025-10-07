@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { PersistencyResult } from '@/app/page';
 
@@ -7,19 +8,23 @@ interface PersistencyChartProps {
   results: PersistencyResult[];
 }
 
+type TimeRange = '3' | '6' | '9' | 'All';
+
 // Modern, clean color palette
 const CARRIER_COLORS = ['#2563eb', '#7c3aed', '#0891b2', '#059669', '#d97706', '#dc2626'];
 const STATUS_COLORS = {
   active: '#10b981', // Modern green
-  inactive: '#64748b', // Clean slate gray
+  inactive: '#ef4444', // Modern red
 };
 
 export default function PersistencyChart({ results }: PersistencyChartProps) {
-  // Aggregate all carriers into Active vs Inactive
-  const totalActive = results.reduce((sum, result) => sum + result.timeRanges.All.positiveCount, 0);
-  const totalInactive = results.reduce((sum, result) => sum + result.timeRanges.All.negativeCount, 0);
-  const total = totalActive + totalInactive;
+  const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>('All');
   
+  // Aggregate all carriers into Active vs Inactive for selected time range
+  const totalActive = results.reduce((sum, result) => sum + result.timeRanges[selectedTimeRange].positiveCount, 0);
+  const totalInactive = results.reduce((sum, result) => sum + result.timeRanges[selectedTimeRange].negativeCount, 0);
+  const total = totalActive + totalInactive;
+
   // Prepare data for combined pie chart
   const chartData = [
     {
@@ -60,13 +65,34 @@ export default function PersistencyChart({ results }: PersistencyChartProps) {
 
   return (
     <div>
-      {/* Summary Cards */}
+      {/* Time Range Toggle */}
+      <div className="mb-6 flex justify-center">
+        <div className="inline-flex rounded-lg border-2 border-slate-200 bg-white p-1">
+          {(['3', '6', '9', 'All'] as TimeRange[]).map((range) => (
+            <button
+              key={range}
+              onClick={() => setSelectedTimeRange(range)}
+              className={`px-6 py-2 text-sm font-medium rounded-md transition-all ${
+                selectedTimeRange === range
+                  ? 'bg-black text-white shadow-sm'
+                  : 'text-slate-600 hover:text-black hover:bg-slate-50'
+              }`}
+            >
+              {range === 'All' ? 'All Time' : `${range} Months`}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Combined Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         {/* Overall Persistency */}
         <div className="p-5 rounded-xl border-2 border-slate-200 bg-white hover:shadow-lg transition-shadow">
           <div className="mb-3">
             <h3 className="font-semibold text-black">Overall Persistency</h3>
+            <p className="text-xs text-slate-500">
+              {selectedTimeRange === 'All' ? 'All Time' : `${selectedTimeRange} Months`}
+            </p>
           </div>
           <div className="space-y-2">
             <div>
@@ -99,16 +125,16 @@ export default function PersistencyChart({ results }: PersistencyChartProps) {
         </div>
 
         {/* Inactive Policies */}
-        <div className="p-5 rounded-xl border-2 border-slate-300 bg-slate-50 hover:shadow-lg transition-shadow">
+        <div className="p-5 rounded-xl border-2 border-red-200 bg-red-50 hover:shadow-lg transition-shadow">
           <div className="mb-3">
-            <h3 className="font-semibold text-slate-900">Inactive Policies</h3>
+            <h3 className="font-semibold text-red-900">Inactive Policies</h3>
           </div>
           <div className="space-y-2">
             <div>
-              <p className="text-3xl font-bold text-slate-600">
+              <p className="text-3xl font-bold text-red-600">
                 {totalInactive.toLocaleString()}
               </p>
-              <p className="text-xs text-slate-700">Terminated Across All Carriers</p>
+              <p className="text-xs text-red-700">Terminated Across All Carriers</p>
             </div>
           </div>
         </div>
@@ -133,21 +159,23 @@ export default function PersistencyChart({ results }: PersistencyChartProps) {
             <div className="space-y-2">
               <div>
                 <p className="text-3xl font-bold text-black">
-                  {result.timeRanges.All.positivePercentage.toFixed(2)}%
+                  {result.timeRanges[selectedTimeRange].positivePercentage.toFixed(2)}%
                 </p>
-                <p className="text-xs text-slate-600">Persistency Rate (All Time)</p>
+                <p className="text-xs text-slate-600">
+                  Persistency Rate ({selectedTimeRange === 'All' ? 'All Time' : `${selectedTimeRange} Months`})
+                </p>
               </div>
               <div className="pt-2 border-t border-slate-200">
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <p className="font-medium text-black">
-                      {result.timeRanges.All.positiveCount.toLocaleString()}
+                      {result.timeRanges[selectedTimeRange].positiveCount.toLocaleString()}
                     </p>
                     <p className="text-slate-500">Active</p>
                   </div>
                   <div>
                     <p className="font-medium text-slate-600">
-                      {result.timeRanges.All.negativeCount.toLocaleString()}
+                      {result.timeRanges[selectedTimeRange].negativeCount.toLocaleString()}
                     </p>
                     <p className="text-slate-500">Inactive</p>
                   </div>
@@ -179,8 +207,8 @@ export default function PersistencyChart({ results }: PersistencyChartProps) {
               ))}
             </Pie>
             <Tooltip content={<CustomTooltip />} />
-            <Legend 
-              verticalAlign="bottom" 
+            <Legend
+              verticalAlign="bottom"
               height={36}
               iconType="circle"
             />
