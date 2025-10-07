@@ -62,7 +62,7 @@ export default function LapsingPolicies({ carrier, policies }: LapsingPoliciesPr
                       {policy.policyNumber}
                     </span>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="flex items-center gap-2">
                       <User className="w-4 h-4 text-slate-500" />
@@ -73,7 +73,7 @@ export default function LapsingPolicies({ carrier, policies }: LapsingPoliciesPr
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-2">
                       <DollarSign className="w-4 h-4 text-slate-500" />
                       <div>
@@ -83,7 +83,7 @@ export default function LapsingPolicies({ carrier, policies }: LapsingPoliciesPr
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4 text-slate-500" />
                       <div>

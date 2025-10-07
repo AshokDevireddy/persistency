@@ -43,8 +43,8 @@ export default function FileUpload({ carrier, label, onFileChange, file }: FileU
         className={`
           relative cursor-pointer rounded-xl border-2 border-dashed p-6
           transition-all duration-300 ease-in-out
-          ${file 
-            ? 'border-black bg-slate-50' 
+          ${file
+            ? 'border-black bg-slate-50'
             : 'border-slate-300 bg-white hover:border-black hover:bg-slate-50'
           }
           group-hover:scale-[1.02] group-hover:shadow-lg

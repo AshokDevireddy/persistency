@@ -10,12 +10,12 @@ interface PersistencyChartProps {
 const COLORS = ['#000000', '#404040', '#737373', '#a3a3a3', '#d4d4d4', '#e5e5e5'];
 
 export default function PersistencyChart({ results }: PersistencyChartProps) {
-  // Prepare data for pie chart
+  // Prepare data for pie chart - using "All" time range
   const chartData = results.map((result, index) => ({
     name: result.carrier,
-    value: result.persistencyRate,
-    activePolicies: result.activePolicies,
-    lapsedPolicies: result.lapsedPolicies,
+    value: result.timeRanges.All.positivePercentage,
+    activePolicies: result.timeRanges.All.positiveCount,
+    lapsedPolicies: result.timeRanges.All.negativeCount,
     totalPolicies: result.totalPolicies,
     color: COLORS[index % COLORS.length],
   }));
@@ -51,7 +51,7 @@ export default function PersistencyChart({ results }: PersistencyChartProps) {
   return (
     <div>
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 max-w-4xl mx-auto">
         {results.map((result, index) => (
           <div
             key={result.carrier}
@@ -69,21 +69,21 @@ export default function PersistencyChart({ results }: PersistencyChartProps) {
             <div className="space-y-2">
               <div>
                 <p className="text-3xl font-bold text-black">
-                  {result.persistencyRate.toFixed(2)}%
+                  {result.timeRanges.All.positivePercentage.toFixed(2)}%
                 </p>
-                <p className="text-xs text-slate-600">Persistency Rate</p>
+                <p className="text-xs text-slate-600">Persistency Rate (All Time)</p>
               </div>
               <div className="pt-2 border-t border-slate-200">
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <p className="font-medium text-black">
-                      {result.activePolicies}
+                      {result.timeRanges.All.positiveCount}
                     </p>
                     <p className="text-slate-500">Active</p>
                   </div>
                   <div>
                     <p className="font-medium text-slate-600">
-                      {result.lapsedPolicies}
+                      {result.timeRanges.All.negativeCount}
                     </p>
                     <p className="text-slate-500">Lapsed</p>
                   </div>

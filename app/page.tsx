@@ -6,26 +6,29 @@ import PersistencyChart from '@/components/PersistencyChart';
 import LapsingPolicies from '@/components/LapsingPolicies';
 import { BarChart3, TrendingUp } from 'lucide-react';
 
-export type CarrierType = 'american-amicable' | 'guarantee-trust-life' | 'combined';
+export type CarrierType = 'american-amicable' | 'combined';
+
+export interface TimeRangeAnalysis {
+  positivePercentage: number;
+  positiveCount: number;
+  negativePercentage: number;
+  negativeCount: number;
+}
 
 export interface PersistencyResult {
   carrier: string;
-  persistencyRate: number;
+  timeRanges: {
+    '3': TimeRangeAnalysis;
+    '6': TimeRangeAnalysis;
+    '9': TimeRangeAnalysis;
+    'All': TimeRangeAnalysis;
+  };
   totalPolicies: number;
-  activePolicies: number;
-  lapsedPolicies: number;
-  lapsingPolicies: Array<{
-    policyNumber: string;
-    holderName: string;
-    premium: number;
-    daysUntilLapse: number;
-  }>;
 }
 
 export default function Home() {
   const [files, setFiles] = useState<Record<CarrierType, File | null>>({
     'american-amicable': null,
-    'guarantee-trust-life': null,
     'combined': null,
   });
   const [results, setResults] = useState<PersistencyResult[] | null>(null);
@@ -110,7 +113,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 max-w-4xl mx-auto">
             <FileUpload
               carrier="american-amicable"
               label="American Amicable"
@@ -118,14 +121,8 @@ export default function Home() {
               file={files['american-amicable']}
             />
             <FileUpload
-              carrier="guarantee-trust-life"
-              label="Guarantee Trust Life"
-              onFileChange={handleFileChange}
-              file={files['guarantee-trust-life']}
-            />
-            <FileUpload
               carrier="combined"
-              label="Combined"
+              label="Combined Insurance"
               onFileChange={handleFileChange}
               file={files['combined']}
             />
@@ -160,16 +157,42 @@ export default function Home() {
               <PersistencyChart results={results} />
             </div>
 
-            {/* Lapsing Policies */}
-            {results.map((result) => (
-              result.lapsingPolicies.length > 0 && (
-                <LapsingPolicies
-                  key={result.carrier}
-                  carrier={result.carrier}
-                  policies={result.lapsingPolicies}
-                />
-              )
-            ))}
+            {/* Raw Analysis Output */}
+            <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8">
+              <h2 className="text-2xl font-semibold text-black mb-6">
+                Detailed Analysis Output
+              </h2>
+              <div className="space-y-6">
+                {results.map((result) => (
+                  <div key={result.carrier} className="border-b border-slate-200 last:border-b-0 pb-6 last:pb-0">
+                    <h3 className="text-xl font-semibold text-black mb-4">{result.carrier}</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {Object.entries(result.timeRanges).map(([period, data]) => (
+                        <div key={period} className="bg-slate-50 rounded-lg p-4">
+                          <p className="text-sm font-medium text-slate-600 mb-2">
+                            {period === 'All' ? 'All Time' : `${period} Months`}
+                          </p>
+                          <div className="space-y-2 text-sm">
+                            <div>
+                              <p className="text-xs text-slate-500">Positive (Active)</p>
+                              <p className="font-semibold text-black">
+                                {data.positivePercentage}% ({data.positiveCount})
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-slate-500">Negative (Lapsed)</p>
+                              <p className="font-semibold text-slate-600">
+                                {data.negativePercentage}% ({data.negativeCount})
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </main>

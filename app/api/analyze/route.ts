@@ -2,115 +2,258 @@ import { NextRequest, NextResponse } from 'next/server';
 import Papa from 'papaparse';
 
 // ============================================================
-// PLACEHOLDER: Replace these functions with your actual analysis code
+// Type Definitions
 // ============================================================
 
-interface PolicyData {
-  policyNumber: string;
-  holderName: string;
-  premium: number;
-  status: string;
-  lastPaymentDate?: string;
-  daysUntilLapse?: number;
-  // Add more fields as needed
+interface AMAMPolicyData {
+  WritingAgent: string;
+  AgentName: string;
+  Company: string;
+  Policy: string;
+  Status: string;
+  DOB: string;
+  PolicyDate: string;
+  PaidtoDate: string;
+  RecvDate: string;
+  LastName: string;
+  FirstName: string;
+  MI: string;
+  Plan: string;
+  Face: string;
+  Form: string;
+  Mode: string;
+  ModePrem: string;
+  [key: string]: string;
 }
 
-async function analyzeAmericanAmicable(fileContent: string) {
-  // TODO: Replace with your American Amicable analysis logic
-  const parsed = Papa.parse(fileContent, { header: true });
-  const data = parsed.data as any[];
+interface CombinedPolicyData {
+  policy_number: string;
+  status: string;
+  effective_date: string;
+  [key: string]: string;
+}
 
-  const totalPolicies = data.length;
-  const activePolicies = data.filter((row: any) => row.status?.toLowerCase() === 'active').length;
-  const lapsedPolicies = totalPolicies - activePolicies;
+interface AnalysisResult {
+  positivePercentage: number;
+  positiveCount: number;
+  negativePercentage: number;
+  negativeCount: number;
+}
 
-  // Example: Find policies about to lapse (customize based on your data structure)
-  const lapsingPolicies = data
-    .filter((row: any) => {
-      const daysUntilLapse = parseInt(row.daysUntilLapse || '999');
-      return daysUntilLapse <= 30 && daysUntilLapse > 0;
-    })
-    .map((row: any) => ({
-      policyNumber: row.policyNumber || row.PolicyNumber || 'N/A',
-      holderName: row.holderName || row.PolicyHolder || 'Unknown',
-      premium: parseFloat(row.premium || row.Premium || '0'),
-      daysUntilLapse: parseInt(row.daysUntilLapse || '0'),
-    }))
-    .sort((a, b) => a.daysUntilLapse - b.daysUntilLapse);
+interface TimeRangeAnalysis {
+  [key: string]: AnalysisResult;
+}
 
+// ============================================================
+// American Amicable Analysis Functions
+// ============================================================
+
+function parseAMAMCSV(fileContent: string): AMAMPolicyData[] {
+  // Pre-process the CSV content to handle the =("value") format
+  const processedContent = fileContent
+    .split('\n')
+    .map(line => line.replace(/=\(/g, '').replace(/\)/g, ''))
+    .join('\n');
+  
+  const parsed = Papa.parse(processedContent, {
+    header: true,
+    skipEmptyLines: true,
+  });
+  
+  return parsed.data as AMAMPolicyData[];
+}
+
+function parseAMAMDate(dateStr: string): Date {
+  const [month, day, year] = dateStr.split('/').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function monthsDifference(date1: Date, date2: Date): number {
+  const yearDiff = date2.getFullYear() - date1.getFullYear();
+  const monthDiff = date2.getMonth() - date1.getMonth();
+  return yearDiff * 12 + monthDiff;
+}
+
+function classifyAMAMPolicy(status: string, policyDate: string, paidToDate: string): 'positive' | 'negative' {
+  const positiveStatuses = ['Active', 'DeathClaim'];
+  const negativeStatuses = ['Declined', 'Withdrawn', 'Incomplete', 'InfNotTaken', 'Terminated', 'NotTaken', 'RPU', 'Act-Ret Item', 'Pending', 'IssNotPaid', 'NeedReqmnt'];
+  
+  if (status === 'DeathClaim') {
+    try {
+      const policyDateObj = parseAMAMDate(policyDate);
+      const paidToDateObj = parseAMAMDate(paidToDate);
+      const monthsDiff = monthsDifference(policyDateObj, paidToDateObj);
+      return monthsDiff <= 24 ? 'negative' : 'positive';
+    } catch {
+      return 'negative';
+    }
+  }
+  
+  if (positiveStatuses.includes(status)) return 'positive';
+  if (negativeStatuses.includes(status)) return 'negative';
+  return 'negative';
+}
+
+function filterAMAMPoliciesByTimeRange(policies: AMAMPolicyData[], monthsBack: number): AMAMPolicyData[] {
+  const now = new Date();
+  const cutoffDate = new Date(now.getFullYear(), now.getMonth() - monthsBack, now.getDate());
+  
+  return policies.filter(policy => {
+    try {
+      const policyDate = parseAMAMDate(policy.PolicyDate);
+      return policyDate >= cutoffDate;
+    } catch {
+      return false;
+    }
+  });
+}
+
+function analyzeAMAMTimeRange(policies: AMAMPolicyData[]): AnalysisResult {
+  let positiveCount = 0;
+  let negativeCount = 0;
+  
+  policies.forEach(policy => {
+    const classification = classifyAMAMPolicy(policy.Status, policy.PolicyDate, policy.PaidtoDate);
+    if (classification === 'positive') {
+      positiveCount++;
+    } else {
+      negativeCount++;
+    }
+  });
+  
+  const total = positiveCount + negativeCount;
+  const positivePercentage = total > 0 ? (positiveCount / total) * 100 : 0;
+  const negativePercentage = total > 0 ? (negativeCount / total) * 100 : 0;
+  
   return {
-    carrier: 'American Amicable',
-    persistencyRate: (activePolicies / totalPolicies) * 100,
-    totalPolicies,
-    activePolicies,
-    lapsedPolicies,
-    lapsingPolicies,
+    positivePercentage: Math.round(positivePercentage * 100) / 100,
+    positiveCount,
+    negativePercentage: Math.round(negativePercentage * 100) / 100,
+    negativeCount
   };
 }
 
-async function analyzeGuaranteeTrustLife(fileContent: string) {
-  // TODO: Replace with your Guarantee Trust Life analysis logic
-  const parsed = Papa.parse(fileContent, { header: true });
-  const data = parsed.data as any[];
-
-  const totalPolicies = data.length;
-  const activePolicies = data.filter((row: any) => row.status?.toLowerCase() === 'active').length;
-  const lapsedPolicies = totalPolicies - activePolicies;
-
-  // Example: Find policies about to lapse (customize based on your data structure)
-  const lapsingPolicies = data
-    .filter((row: any) => {
-      const daysUntilLapse = parseInt(row.daysUntilLapse || '999');
-      return daysUntilLapse <= 30 && daysUntilLapse > 0;
-    })
-    .map((row: any) => ({
-      policyNumber: row.policyNumber || row.PolicyNumber || 'N/A',
-      holderName: row.holderName || row.PolicyHolder || 'Unknown',
-      premium: parseFloat(row.premium || row.Premium || '0'),
-      daysUntilLapse: parseInt(row.daysUntilLapse || '0'),
-    }))
-    .sort((a, b) => a.daysUntilLapse - b.daysUntilLapse);
-
+async function analyzeAmericanAmicable(fileContent: string) {
+  console.log('📊 Starting AMAM policy analysis...');
+  
+  const policies = parseAMAMCSV(fileContent);
+  console.log(`📈 Total AMAM policies loaded: ${policies.length}`);
+  
+  const results: TimeRangeAnalysis = {};
+  
+  const policies3Months = filterAMAMPoliciesByTimeRange(policies, 3);
+  results['3'] = analyzeAMAMTimeRange(policies3Months);
+  
+  const policies6Months = filterAMAMPoliciesByTimeRange(policies, 6);
+  results['6'] = analyzeAMAMTimeRange(policies6Months);
+  
+  const policies9Months = filterAMAMPoliciesByTimeRange(policies, 9);
+  results['9'] = analyzeAMAMTimeRange(policies9Months);
+  
+  results['All'] = analyzeAMAMTimeRange(policies);
+  
+  console.log('AMAM Analysis Results:', results);
+  
   return {
-    carrier: 'Guarantee Trust Life',
-    persistencyRate: (activePolicies / totalPolicies) * 100,
-    totalPolicies,
-    activePolicies,
-    lapsedPolicies,
-    lapsingPolicies,
+    carrier: 'American Amicable',
+    timeRanges: results,
+    totalPolicies: policies.length,
+    persistencyRate: results['All'].positivePercentage
+  };
+}
+
+// ============================================================
+// Combined Insurance Analysis Functions
+// ============================================================
+
+function parseCombinedCSV(fileContent: string): CombinedPolicyData[] {
+  const parsed = Papa.parse(fileContent, {
+    header: true,
+    skipEmptyLines: true,
+  });
+  
+  return parsed.data as CombinedPolicyData[];
+}
+
+function parseCombinedDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function classifyCombinedPolicy(status: string): 'positive' | 'negative' {
+  const positiveStatuses = ['In-Force', 'Issued'];
+  const negativeStatuses = ['Terminated', 'Lapse-Pending'];
+  
+  if (positiveStatuses.includes(status)) return 'positive';
+  if (negativeStatuses.includes(status)) return 'negative';
+  return 'negative';
+}
+
+function filterCombinedPoliciesByTimeRange(policies: CombinedPolicyData[], monthsBack: number): CombinedPolicyData[] {
+  const now = new Date();
+  const cutoffDate = new Date(now.getFullYear(), now.getMonth() - monthsBack, now.getDate());
+  
+  return policies.filter(policy => {
+    try {
+      const effectiveDate = parseCombinedDate(policy.effective_date);
+      return effectiveDate >= cutoffDate;
+    } catch {
+      return false;
+    }
+  });
+}
+
+function analyzeCombinedTimeRange(policies: CombinedPolicyData[]): AnalysisResult {
+  let positiveCount = 0;
+  let negativeCount = 0;
+  
+  policies.forEach(policy => {
+    const classification = classifyCombinedPolicy(policy.status);
+    if (classification === 'positive') {
+      positiveCount++;
+    } else {
+      negativeCount++;
+    }
+  });
+  
+  const total = positiveCount + negativeCount;
+  const positivePercentage = total > 0 ? (positiveCount / total) * 100 : 0;
+  const negativePercentage = total > 0 ? (negativeCount / total) * 100 : 0;
+  
+  return {
+    positivePercentage: Math.round(positivePercentage * 100) / 100,
+    positiveCount,
+    negativePercentage: Math.round(negativePercentage * 100) / 100,
+    negativeCount
   };
 }
 
 async function analyzeCombined(fileContent: string) {
-  // TODO: Replace with your Combined analysis logic
-  const parsed = Papa.parse(fileContent, { header: true });
-  const data = parsed.data as any[];
-
-  const totalPolicies = data.length;
-  const activePolicies = data.filter((row: any) => row.status?.toLowerCase() === 'active').length;
-  const lapsedPolicies = totalPolicies - activePolicies;
-
-  // Example: Find policies about to lapse (customize based on your data structure)
-  const lapsingPolicies = data
-    .filter((row: any) => {
-      const daysUntilLapse = parseInt(row.daysUntilLapse || '999');
-      return daysUntilLapse <= 30 && daysUntilLapse > 0;
-    })
-    .map((row: any) => ({
-      policyNumber: row.policyNumber || row.PolicyNumber || 'N/A',
-      holderName: row.holderName || row.PolicyHolder || 'Unknown',
-      premium: parseFloat(row.premium || row.Premium || '0'),
-      daysUntilLapse: parseInt(row.daysUntilLapse || '0'),
-    }))
-    .sort((a, b) => a.daysUntilLapse - b.daysUntilLapse);
-
+  console.log('📊 Starting Combined Insurance policy analysis...');
+  
+  const policies = parseCombinedCSV(fileContent);
+  console.log(`📈 Total Combined policies loaded: ${policies.length}`);
+  
+  const results: TimeRangeAnalysis = {};
+  
+  const policies3Months = filterCombinedPoliciesByTimeRange(policies, 3);
+  results['3'] = analyzeCombinedTimeRange(policies3Months);
+  
+  const policies6Months = filterCombinedPoliciesByTimeRange(policies, 6);
+  results['6'] = analyzeCombinedTimeRange(policies6Months);
+  
+  const policies9Months = filterCombinedPoliciesByTimeRange(policies, 9);
+  results['9'] = analyzeCombinedTimeRange(policies9Months);
+  
+  results['All'] = analyzeCombinedTimeRange(policies);
+  
+  console.log('Combined Analysis Results:', results);
+  
   return {
-    carrier: 'Combined',
-    persistencyRate: (activePolicies / totalPolicies) * 100,
-    totalPolicies,
-    activePolicies,
-    lapsedPolicies,
-    lapsingPolicies,
+    carrier: 'Combined Insurance',
+    timeRanges: results,
+    totalPolicies: policies.length,
+    persistencyRate: results['All'].positivePercentage
   };
 }
 
@@ -131,14 +274,6 @@ export async function POST(request: NextRequest) {
       results.push(result);
     }
 
-    // Process Guarantee Trust Life
-    const guaranteeTrustFile = formData.get('guarantee-trust-life') as File | null;
-    if (guaranteeTrustFile) {
-      const content = await guaranteeTrustFile.text();
-      const result = await analyzeGuaranteeTrustLife(content);
-      results.push(result);
-    }
-
     // Process Combined
     const combinedFile = formData.get('combined') as File | null;
     if (combinedFile) {
@@ -154,11 +289,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('✅ Analysis complete:', results);
+
     return NextResponse.json({ results });
   } catch (error) {
-    console.error('Analysis error:', error);
+    console.error('❌ Analysis error:', error);
     return NextResponse.json(
-      { error: 'Failed to analyze files. Please check file format.' },
+      { error: `Failed to analyze files: ${error instanceof Error ? error.message : 'Unknown error'}` },
       { status: 500 }
     );
   }
