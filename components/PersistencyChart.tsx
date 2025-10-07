@@ -20,7 +20,7 @@ const STATUS_COLORS = {
 
 export default function PersistencyChart({ results }: PersistencyChartProps) {
   const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>('All');
-  
+
   // Aggregate all carriers into Active vs Inactive for selected time range
   const totalActive = results.reduce((sum, result) => sum + result.timeRanges[selectedTimeRange].positiveCount, 0);
   const totalInactive = results.reduce((sum, result) => sum + result.timeRanges[selectedTimeRange].negativeCount, 0);
@@ -208,8 +208,8 @@ export default function PersistencyChart({ results }: PersistencyChartProps) {
               ))}
             </Pie>
             <Tooltip content={<CustomTooltip />} />
-            <Legend 
-              verticalAlign="bottom" 
+            <Legend
+              verticalAlign="bottom"
               height={36}
               iconType="circle"
             />

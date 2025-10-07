@@ -76,28 +76,8 @@ export default function StatusBreakdownCharts({ carrier, statusBreakdown }: Stat
         {carrier} - Status Breakdown
       </h3>
       
-      {/* Status Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-6">
-        {filteredData.map((item) => (
-          <div
-            key={item.name}
-            className="p-3 rounded-lg border border-slate-200 bg-slate-50"
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <div
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: item.color }}
-              />
-              <p className="text-xs font-medium text-slate-700 truncate">{item.name}</p>
-            </div>
-            <p className="text-lg font-bold text-black">{item.percentage}%</p>
-            <p className="text-xs text-slate-500">{item.value.toLocaleString()} policies</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Pie Chart */}
-      <div className="h-80 flex items-center justify-center">
+      {/* Pie Chart - Cleaner without labels */}
+      <div className="h-96 flex items-center justify-center mb-6">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -105,26 +85,43 @@ export default function StatusBreakdownCharts({ carrier, statusBreakdown }: Stat
               cx="50%"
               cy="50%"
               labelLine={false}
-              label={({ name, percentage }) => `${name}: ${percentage}%`}
-              outerRadius={110}
+              label={false}
+              outerRadius={130}
+              innerRadius={60}
               fill="#8884d8"
               dataKey="value"
-              strokeWidth={2}
+              strokeWidth={3}
               stroke="#fff"
+              paddingAngle={1}
             >
               {filteredData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Pie>
             <Tooltip content={<CustomTooltip />} />
-            <Legend 
-              verticalAlign="bottom" 
-              height={36}
-              iconType="circle"
-              wrapperStyle={{ fontSize: '12px' }}
-            />
           </PieChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* Status Grid - All details here */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        {filteredData.map((item) => (
+          <div
+            key={item.name}
+            className="p-4 rounded-lg border-2 border-slate-200 bg-slate-50 hover:border-slate-300 hover:shadow-md transition-all"
+            style={{ borderLeftColor: item.color, borderLeftWidth: '4px' }}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <div
+                className="w-4 h-4 rounded-full flex-shrink-0"
+                style={{ backgroundColor: item.color }}
+              />
+              <p className="text-sm font-semibold text-slate-800 truncate">{item.name}</p>
+            </div>
+            <p className="text-2xl font-bold text-black mb-1">{item.percentage}%</p>
+            <p className="text-xs text-slate-600">{item.value.toLocaleString()} policies</p>
+          </div>
+        ))}
       </div>
     </div>
   );
