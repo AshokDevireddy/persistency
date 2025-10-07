@@ -75,7 +75,7 @@ export default function StatusBreakdownCharts({ carrier, statusBreakdown }: Stat
       <h3 className="text-xl font-semibold text-black mb-6 text-center">
         {carrier} - Status Breakdown
       </h3>
-      
+
       {/* Pie Chart - Cleaner without labels */}
       <div className="h-96 flex items-center justify-center mb-6">
         <ResponsiveContainer width="100%" height="100%">
@@ -104,19 +104,19 @@ export default function StatusBreakdownCharts({ carrier, statusBreakdown }: Stat
       </div>
 
       {/* Status Grid - All details here */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredData.map((item) => (
           <div
             key={item.name}
-            className="p-4 rounded-lg border-2 border-slate-200 bg-slate-50 hover:border-slate-300 hover:shadow-md transition-all"
+            className="p-5 rounded-lg border-2 border-slate-200 bg-slate-50 hover:border-slate-300 hover:shadow-md transition-all"
             style={{ borderLeftColor: item.color, borderLeftWidth: '4px' }}
           >
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-3 mb-3">
               <div
-                className="w-4 h-4 rounded-full flex-shrink-0"
+                className="w-5 h-5 rounded-full flex-shrink-0"
                 style={{ backgroundColor: item.color }}
               />
-              <p className="text-sm font-semibold text-slate-800 truncate">{item.name}</p>
+              <p className="text-sm font-semibold text-slate-800 leading-tight break-words">{item.name}</p>
             </div>
             <p className="text-2xl font-bold text-black mb-1">{item.percentage}%</p>
             <p className="text-xs text-slate-600">{item.value.toLocaleString()} policies</p>
