@@ -4,6 +4,8 @@ import { useState } from 'react';
 import FileUpload from '@/components/FileUpload';
 import PersistencyChart from '@/components/PersistencyChart';
 import LapsingPolicies from '@/components/LapsingPolicies';
+import LapseSection from '@/components/LapseSection';
+import { Policy } from '@/components/LapseTable';
 import { BarChart3, TrendingUp } from 'lucide-react';
 
 export type CarrierType = 'american-amicable' | 'combined';
@@ -47,6 +49,7 @@ export default function Home() {
   const [results, setResults] = useState<PersistencyResult[] | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lapsePolicies, setLapsePolicies] = useState<Policy[]>([]);
 
   const handleFileChange = (carrier: CarrierType, file: File | null) => {
     setFiles(prev => ({ ...prev, [carrier]: file }));
@@ -87,6 +90,11 @@ export default function Home() {
       console.log('📊 Analysis Results:', JSON.stringify(data, null, 2));
       console.log('📈 Detailed Results:', data.results);
       setResults(data.results);
+      
+      // Set lapse policies if available
+      if (data.lapsePolicies) {
+        setLapsePolicies(data.lapsePolicies);
+      }
     } catch (err) {
       console.error('❌ Analysis Error:', err);
       setError(err instanceof Error ? err.message : 'An error occurred during analysis');
@@ -209,6 +217,13 @@ export default function Home() {
                 ))}
               </div>
             </div>
+
+            {/* Lapse Policies Section */}
+            {lapsePolicies.length > 0 && (
+              <div className="mt-8">
+                <LapseSection policies={lapsePolicies} />
+              </div>
+            )}
           </div>
         )}
       </main>

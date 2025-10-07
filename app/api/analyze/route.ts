@@ -322,25 +322,67 @@ async function analyzeCombined(fileContent: string) {
 // API Route Handler
 // ============================================================
 
+function extractLapsePoliciesFromAMAM(policies: AMAMPolicyData[]): any[] {
+  return policies
+    .filter(p => {
+      const status = p.Status;
+      return ['Act-Pastdue', 'IssNotPaid', 'Pending', 'NeedReqmnt'].includes(status);
+    })
+    .map(p => ({
+      id: p.Policy || `${p.FirstName}-${p.LastName}-${Math.random()}`,
+      carrier: 'American Amicable',
+      insuredFirstName: p.FirstName || '',
+      insuredLastName: p.LastName || '',
+      phone: p.Phone || null,
+      statuses: [p.Status],
+      daysToLapse: null
+    }));
+}
+
+function extractLapsePoliciesFromCombined(policies: CombinedPolicyData[]): any[] {
+  return policies
+    .filter(p => p.status === 'Lapse-Pending')
+    .map(p => ({
+      id: p.policy_number || `combined-${Math.random()}`,
+      carrier: 'Combined',
+      insuredFirstName: p.first_name || '',
+      insuredLastName: p.last_name || '',
+      phone: (p as any).phone || null,
+      statuses: ['Lapse-Pending'],
+      daysToLapse: null
+    }));
+}
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const results = [];
+    const lapsePolicies: any[] = [];
 
     // Process American Amicable
     const americanAmicableFile = formData.get('american-amicable') as File | null;
     if (americanAmicableFile) {
       const content = await americanAmicableFile.text();
+      const policies = parseAMAMCSV(content);
       const result = await analyzeAmericanAmicable(content);
       results.push(result);
+      
+      // Extract lapse policies
+      const amamLapsePolicies = extractLapsePoliciesFromAMAM(policies);
+      lapsePolicies.push(...amamLapsePolicies);
     }
 
     // Process Combined
     const combinedFile = formData.get('combined') as File | null;
     if (combinedFile) {
       const content = await combinedFile.text();
+      const policies = parseCombinedCSV(content);
       const result = await analyzeCombined(content);
       results.push(result);
+      
+      // Extract lapse policies
+      const combinedLapsePolicies = extractLapsePoliciesFromCombined(policies);
+      lapsePolicies.push(...combinedLapsePolicies);
     }
 
     if (results.length === 0) {
@@ -351,8 +393,9 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('✅ Analysis complete:', results);
+    console.log('📋 Lapse policies found:', lapsePolicies.length);
 
-    return NextResponse.json({ results });
+    return NextResponse.json({ results, lapsePolicies });
   } catch (error) {
     console.error('❌ Analysis error:', error);
     return NextResponse.json(
