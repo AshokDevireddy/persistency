@@ -54,12 +54,12 @@ function parseAMAMCSV(fileContent: string): AMAMPolicyData[] {
     .split('\n')
     .map(line => line.replace(/=\(/g, '').replace(/\)/g, ''))
     .join('\n');
-  
+
   const parsed = Papa.parse(processedContent, {
     header: true,
     skipEmptyLines: true,
   });
-  
+
   return parsed.data as AMAMPolicyData[];
 }
 
@@ -77,7 +77,7 @@ function monthsDifference(date1: Date, date2: Date): number {
 function classifyAMAMPolicy(status: string, policyDate: string, paidToDate: string): 'positive' | 'negative' {
   const positiveStatuses = ['Active', 'DeathClaim'];
   const negativeStatuses = ['Declined', 'Withdrawn', 'Incomplete', 'InfNotTaken', 'Terminated', 'NotTaken', 'RPU', 'Act-Ret Item', 'Pending', 'IssNotPaid', 'NeedReqmnt'];
-  
+
   if (status === 'DeathClaim') {
     try {
       const policyDateObj = parseAMAMDate(policyDate);
@@ -88,7 +88,7 @@ function classifyAMAMPolicy(status: string, policyDate: string, paidToDate: stri
       return 'negative';
     }
   }
-  
+
   if (positiveStatuses.includes(status)) return 'positive';
   if (negativeStatuses.includes(status)) return 'negative';
   return 'negative';
@@ -97,7 +97,7 @@ function classifyAMAMPolicy(status: string, policyDate: string, paidToDate: stri
 function filterAMAMPoliciesByTimeRange(policies: AMAMPolicyData[], monthsBack: number): AMAMPolicyData[] {
   const now = new Date();
   const cutoffDate = new Date(now.getFullYear(), now.getMonth() - monthsBack, now.getDate());
-  
+
   return policies.filter(policy => {
     try {
       const policyDate = parseAMAMDate(policy.PolicyDate);
@@ -111,7 +111,7 @@ function filterAMAMPoliciesByTimeRange(policies: AMAMPolicyData[], monthsBack: n
 function analyzeAMAMTimeRange(policies: AMAMPolicyData[]): AnalysisResult {
   let positiveCount = 0;
   let negativeCount = 0;
-  
+
   policies.forEach(policy => {
     const classification = classifyAMAMPolicy(policy.Status, policy.PolicyDate, policy.PaidtoDate);
     if (classification === 'positive') {
@@ -120,11 +120,11 @@ function analyzeAMAMTimeRange(policies: AMAMPolicyData[]): AnalysisResult {
       negativeCount++;
     }
   });
-  
+
   const total = positiveCount + negativeCount;
   const positivePercentage = total > 0 ? (positiveCount / total) * 100 : 0;
   const negativePercentage = total > 0 ? (negativeCount / total) * 100 : 0;
-  
+
   return {
     positivePercentage: Math.round(positivePercentage * 100) / 100,
     positiveCount,
@@ -135,25 +135,25 @@ function analyzeAMAMTimeRange(policies: AMAMPolicyData[]): AnalysisResult {
 
 async function analyzeAmericanAmicable(fileContent: string) {
   console.log('📊 Starting AMAM policy analysis...');
-  
+
   const policies = parseAMAMCSV(fileContent);
   console.log(`📈 Total AMAM policies loaded: ${policies.length}`);
-  
+
   const results: TimeRangeAnalysis = {};
-  
+
   const policies3Months = filterAMAMPoliciesByTimeRange(policies, 3);
   results['3'] = analyzeAMAMTimeRange(policies3Months);
-  
+
   const policies6Months = filterAMAMPoliciesByTimeRange(policies, 6);
   results['6'] = analyzeAMAMTimeRange(policies6Months);
-  
+
   const policies9Months = filterAMAMPoliciesByTimeRange(policies, 9);
   results['9'] = analyzeAMAMTimeRange(policies9Months);
-  
+
   results['All'] = analyzeAMAMTimeRange(policies);
-  
+
   console.log('AMAM Analysis Results:', results);
-  
+
   return {
     carrier: 'American Amicable',
     timeRanges: results,
@@ -171,7 +171,7 @@ function parseCombinedCSV(fileContent: string): CombinedPolicyData[] {
     header: true,
     skipEmptyLines: true,
   });
-  
+
   return parsed.data as CombinedPolicyData[];
 }
 
@@ -183,7 +183,7 @@ function parseCombinedDate(dateStr: string): Date {
 function classifyCombinedPolicy(status: string): 'positive' | 'negative' {
   const positiveStatuses = ['In-Force', 'Issued'];
   const negativeStatuses = ['Terminated', 'Lapse-Pending'];
-  
+
   if (positiveStatuses.includes(status)) return 'positive';
   if (negativeStatuses.includes(status)) return 'negative';
   return 'negative';
@@ -192,7 +192,7 @@ function classifyCombinedPolicy(status: string): 'positive' | 'negative' {
 function filterCombinedPoliciesByTimeRange(policies: CombinedPolicyData[], monthsBack: number): CombinedPolicyData[] {
   const now = new Date();
   const cutoffDate = new Date(now.getFullYear(), now.getMonth() - monthsBack, now.getDate());
-  
+
   return policies.filter(policy => {
     try {
       const effectiveDate = parseCombinedDate(policy.effective_date);
@@ -206,7 +206,7 @@ function filterCombinedPoliciesByTimeRange(policies: CombinedPolicyData[], month
 function analyzeCombinedTimeRange(policies: CombinedPolicyData[]): AnalysisResult {
   let positiveCount = 0;
   let negativeCount = 0;
-  
+
   policies.forEach(policy => {
     const classification = classifyCombinedPolicy(policy.status);
     if (classification === 'positive') {
@@ -215,11 +215,11 @@ function analyzeCombinedTimeRange(policies: CombinedPolicyData[]): AnalysisResul
       negativeCount++;
     }
   });
-  
+
   const total = positiveCount + negativeCount;
   const positivePercentage = total > 0 ? (positiveCount / total) * 100 : 0;
   const negativePercentage = total > 0 ? (negativeCount / total) * 100 : 0;
-  
+
   return {
     positivePercentage: Math.round(positivePercentage * 100) / 100,
     positiveCount,
@@ -230,25 +230,25 @@ function analyzeCombinedTimeRange(policies: CombinedPolicyData[]): AnalysisResul
 
 async function analyzeCombined(fileContent: string) {
   console.log('📊 Starting Combined Insurance policy analysis...');
-  
+
   const policies = parseCombinedCSV(fileContent);
   console.log(`📈 Total Combined policies loaded: ${policies.length}`);
-  
+
   const results: TimeRangeAnalysis = {};
-  
+
   const policies3Months = filterCombinedPoliciesByTimeRange(policies, 3);
   results['3'] = analyzeCombinedTimeRange(policies3Months);
-  
+
   const policies6Months = filterCombinedPoliciesByTimeRange(policies, 6);
   results['6'] = analyzeCombinedTimeRange(policies6Months);
-  
+
   const policies9Months = filterCombinedPoliciesByTimeRange(policies, 9);
   results['9'] = analyzeCombinedTimeRange(policies9Months);
-  
+
   results['All'] = analyzeCombinedTimeRange(policies);
-  
+
   console.log('Combined Analysis Results:', results);
-  
+
   return {
     carrier: 'Combined Insurance',
     timeRanges: results,

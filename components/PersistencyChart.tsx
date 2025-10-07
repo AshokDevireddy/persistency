@@ -36,7 +36,7 @@ export default function PersistencyChart({ results }: PersistencyChartProps) {
               Active Policies: <span className="font-medium text-black">{data.activePolicies}</span>
             </p>
             <p className="text-slate-600">
-              Lapsed Policies: <span className="font-medium text-slate-600">{data.lapsedPolicies}</span>
+              Inactive Policies: <span className="font-medium text-slate-600">{data.lapsedPolicies}</span>
             </p>
             <p className="text-slate-600">
               Total Policies: <span className="font-medium text-black">{data.totalPolicies}</span>
@@ -85,7 +85,7 @@ export default function PersistencyChart({ results }: PersistencyChartProps) {
                     <p className="font-medium text-slate-600">
                       {result.timeRanges.All.negativeCount}
                     </p>
-                    <p className="text-slate-500">Lapsed</p>
+                    <p className="text-slate-500">Inactive</p>
                   </div>
                 </div>
               </div>

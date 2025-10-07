@@ -71,8 +71,11 @@ export default function Home() {
       }
 
       const data = await response.json();
+      console.log('📊 Analysis Results:', JSON.stringify(data, null, 2));
+      console.log('📈 Detailed Results:', data.results);
       setResults(data.results);
     } catch (err) {
+      console.error('❌ Analysis Error:', err);
       setError(err instanceof Error ? err.message : 'An error occurred during analysis');
     } finally {
       setAnalyzing(false);
@@ -180,7 +183,7 @@ export default function Home() {
                               </p>
                             </div>
                             <div>
-                              <p className="text-xs text-slate-500">Negative (Lapsed)</p>
+                              <p className="text-xs text-slate-500">Negative (Inactive)</p>
                               <p className="font-semibold text-slate-600">
                                 {data.negativePercentage}% ({data.negativeCount})
                               </p>
