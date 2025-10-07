@@ -24,22 +24,22 @@ export default function PersistencyChart({ results }: PersistencyChartProps) {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white dark:bg-black border border-slate-300 dark:border-slate-700 rounded-lg shadow-xl p-4">
-          <p className="font-semibold text-black dark:text-white mb-2">
+        <div className="bg-white border border-slate-300 rounded-lg shadow-xl p-4">
+          <p className="font-semibold text-black mb-2">
             {data.name}
           </p>
           <div className="space-y-1 text-sm">
-            <p className="text-slate-600 dark:text-slate-400">
-              Persistency Rate: <span className="font-medium text-black dark:text-white">{data.value.toFixed(2)}%</span>
+            <p className="text-slate-600">
+              Persistency Rate: <span className="font-medium text-black">{data.value.toFixed(2)}%</span>
             </p>
-            <p className="text-slate-600 dark:text-slate-400">
-              Active Policies: <span className="font-medium text-black dark:text-white">{data.activePolicies}</span>
+            <p className="text-slate-600">
+              Active Policies: <span className="font-medium text-black">{data.activePolicies}</span>
             </p>
-            <p className="text-slate-600 dark:text-slate-400">
-              Lapsed Policies: <span className="font-medium text-slate-600 dark:text-slate-400">{data.lapsedPolicies}</span>
+            <p className="text-slate-600">
+              Lapsed Policies: <span className="font-medium text-slate-600">{data.lapsedPolicies}</span>
             </p>
-            <p className="text-slate-600 dark:text-slate-400">
-              Total Policies: <span className="font-medium text-black dark:text-white">{data.totalPolicies}</span>
+            <p className="text-slate-600">
+              Total Policies: <span className="font-medium text-black">{data.totalPolicies}</span>
             </p>
           </div>
         </div>
@@ -55,34 +55,34 @@ export default function PersistencyChart({ results }: PersistencyChartProps) {
         {results.map((result, index) => (
           <div
             key={result.carrier}
-            className="p-5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-black hover:shadow-lg transition-shadow"
+            className="p-5 rounded-xl border-2 border-slate-200 bg-white hover:shadow-lg transition-shadow"
           >
             <div className="flex items-start justify-between mb-3">
-              <h3 className="font-semibold text-black dark:text-white">
+              <h3 className="font-semibold text-black">
                 {result.carrier}
               </h3>
               <div
-                className="w-4 h-4 rounded-full border border-slate-300 dark:border-slate-600"
+                className="w-4 h-4 rounded-full border border-slate-300"
                 style={{ backgroundColor: COLORS[index % COLORS.length] }}
               />
             </div>
             <div className="space-y-2">
               <div>
-                <p className="text-3xl font-bold text-black dark:text-white">
+                <p className="text-3xl font-bold text-black">
                   {result.persistencyRate.toFixed(2)}%
                 </p>
-                <p className="text-xs text-slate-600 dark:text-slate-400">Persistency Rate</p>
+                <p className="text-xs text-slate-600">Persistency Rate</p>
               </div>
-              <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+              <div className="pt-2 border-t border-slate-200">
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <p className="font-medium text-black dark:text-white">
+                    <p className="font-medium text-black">
                       {result.activePolicies}
                     </p>
                     <p className="text-slate-500">Active</p>
                   </div>
                   <div>
-                    <p className="font-medium text-slate-600 dark:text-slate-400">
+                    <p className="font-medium text-slate-600">
                       {result.lapsedPolicies}
                     </p>
                     <p className="text-slate-500">Lapsed</p>

@@ -77,19 +77,19 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-black sticky top-0 z-10">
+      <header className="border-b border-slate-200 bg-white sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-black dark:bg-white rounded-lg">
-              <BarChart3 className="w-8 h-8 text-white dark:text-black" />
+            <div className="p-2 bg-black rounded-lg">
+              <BarChart3 className="w-8 h-8 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-black dark:text-white">
+              <h1 className="text-3xl font-bold text-black">
                 Persistency Analyzer
               </h1>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
+              <p className="text-sm text-slate-600">
                 Analyze insurance policy retention across carriers
               </p>
             </div>
@@ -102,10 +102,10 @@ export default function Home() {
         {/* Upload Section */}
         <div className="mb-12 animate-fade-in">
           <div className="mb-8 text-center">
-            <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
+            <h2 className="text-2xl font-semibold text-black mb-2">
               Upload Carrier Data
             </h2>
-            <p className="text-slate-600 dark:text-slate-400">
+            <p className="text-slate-600">
               Upload CSV files for each carrier to analyze persistency rates
             </p>
           </div>
@@ -132,7 +132,7 @@ export default function Home() {
           </div>
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-center animate-slide-up">
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-center animate-slide-up">
               {error}
             </div>
           )}
@@ -141,7 +141,7 @@ export default function Home() {
             <button
               onClick={handleAnalyze}
               disabled={analyzing}
-              className="inline-flex items-center gap-2 px-8 py-4 bg-black dark:bg-white text-white dark:text-black font-semibold rounded-lg hover:bg-slate-800 dark:hover:bg-slate-200 focus:outline-none focus:ring-4 focus:ring-slate-400/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105 active:scale-95 shadow-lg"
+              className="inline-flex items-center gap-2 px-8 py-4 bg-black text-white font-semibold rounded-lg hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-400/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105 active:scale-95 shadow-lg"
             >
               <TrendingUp className="w-5 h-5" />
               {analyzing ? 'Analyzing...' : 'Analyze Persistency'}
@@ -153,8 +153,8 @@ export default function Home() {
         {results && results.length > 0 && (
           <div className="space-y-8 animate-slide-up">
             {/* Persistency Chart */}
-            <div className="bg-white dark:bg-black rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-8">
-              <h2 className="text-2xl font-semibold text-black dark:text-white mb-6">
+            <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8">
+              <h2 className="text-2xl font-semibold text-black mb-6">
                 Persistency Overview
               </h2>
               <PersistencyChart results={results} />
@@ -175,8 +175,8 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-20 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-black">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center text-slate-600 dark:text-slate-400 text-sm">
+      <footer className="mt-20 border-t border-slate-200 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center text-slate-600 text-sm">
           <p>© 2025 Persistency Analyzer. Built for insurance professionals.</p>
         </div>
       </footer>
