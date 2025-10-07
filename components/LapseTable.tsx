@@ -25,7 +25,7 @@ export function deriveActionAndSeverity(statuses: string[]): ActionAndSeverity {
       severity: 'critical'
     };
   }
-  
+
   // American Amicable - Payment issues
   if (statuses.includes('Act-Pastdue') || statuses.includes('IssNotPaid')) {
     return {
@@ -33,7 +33,7 @@ export function deriveActionAndSeverity(statuses: string[]): ActionAndSeverity {
       severity: 'high'
     };
   }
-  
+
   // American Amicable - Missing information
   if (statuses.includes('Pending') || statuses.includes('NeedReqmnt')) {
     return {
@@ -41,7 +41,7 @@ export function deriveActionAndSeverity(statuses: string[]): ActionAndSeverity {
       severity: 'medium'
     };
   }
-  
+
   return {
     action: 'Monitor',
     severity: 'low'
@@ -120,7 +120,7 @@ export default function LapseTable({ carrierLabel, policies, derive, showPhone =
                 const bgColor = severityBgColors[severity];
 
                 return (
-                  <tr 
+                  <tr
                     key={policy.id}
                     className={`border-b border-slate-100 transition-colors ${bgColor}`}
                   >

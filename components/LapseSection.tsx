@@ -25,7 +25,7 @@ export default function LapseSection({ policies }: LapseSectionProps) {
           derive={deriveActionAndSeverity}
           showPhone={false}
         />
-        
+
         {/* American Amicable Table */}
         <LapseTable
           carrierLabel="American Amicable"
