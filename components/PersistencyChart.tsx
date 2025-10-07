@@ -7,7 +7,7 @@ interface PersistencyChartProps {
   results: PersistencyResult[];
 }
 
-const COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
+const COLORS = ['#000000', '#404040', '#737373', '#a3a3a3', '#d4d4d4', '#e5e5e5'];
 
 export default function PersistencyChart({ results }: PersistencyChartProps) {
   // Prepare data for pie chart
@@ -24,22 +24,22 @@ export default function PersistencyChart({ results }: PersistencyChartProps) {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-4">
-          <p className="font-semibold text-slate-900 dark:text-slate-100 mb-2">
+        <div className="bg-white dark:bg-black border border-slate-300 dark:border-slate-700 rounded-lg shadow-xl p-4">
+          <p className="font-semibold text-black dark:text-white mb-2">
             {data.name}
           </p>
           <div className="space-y-1 text-sm">
             <p className="text-slate-600 dark:text-slate-400">
-              Persistency Rate: <span className="font-medium text-slate-900 dark:text-slate-100">{data.value.toFixed(2)}%</span>
+              Persistency Rate: <span className="font-medium text-black dark:text-white">{data.value.toFixed(2)}%</span>
             </p>
             <p className="text-slate-600 dark:text-slate-400">
-              Active Policies: <span className="font-medium text-green-600 dark:text-green-400">{data.activePolicies}</span>
+              Active Policies: <span className="font-medium text-black dark:text-white">{data.activePolicies}</span>
             </p>
             <p className="text-slate-600 dark:text-slate-400">
-              Lapsed Policies: <span className="font-medium text-red-600 dark:text-red-400">{data.lapsedPolicies}</span>
+              Lapsed Policies: <span className="font-medium text-slate-600 dark:text-slate-400">{data.lapsedPolicies}</span>
             </p>
             <p className="text-slate-600 dark:text-slate-400">
-              Total Policies: <span className="font-medium text-slate-900 dark:text-slate-100">{data.totalPolicies}</span>
+              Total Policies: <span className="font-medium text-black dark:text-white">{data.totalPolicies}</span>
             </p>
           </div>
         </div>
@@ -55,34 +55,34 @@ export default function PersistencyChart({ results }: PersistencyChartProps) {
         {results.map((result, index) => (
           <div
             key={result.carrier}
-            className="p-5 rounded-xl border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900"
+            className="p-5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-black hover:shadow-lg transition-shadow"
           >
             <div className="flex items-start justify-between mb-3">
-              <h3 className="font-semibold text-slate-900 dark:text-slate-100">
+              <h3 className="font-semibold text-black dark:text-white">
                 {result.carrier}
               </h3>
               <div
-                className="w-4 h-4 rounded-full"
+                className="w-4 h-4 rounded-full border border-slate-300 dark:border-slate-600"
                 style={{ backgroundColor: COLORS[index % COLORS.length] }}
               />
             </div>
             <div className="space-y-2">
               <div>
-                <p className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                <p className="text-3xl font-bold text-black dark:text-white">
                   {result.persistencyRate.toFixed(2)}%
                 </p>
                 <p className="text-xs text-slate-600 dark:text-slate-400">Persistency Rate</p>
               </div>
-              <div className="pt-2 border-t border-slate-300 dark:border-slate-600">
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <p className="font-medium text-green-600 dark:text-green-400">
+                    <p className="font-medium text-black dark:text-white">
                       {result.activePolicies}
                     </p>
                     <p className="text-slate-500">Active</p>
                   </div>
                   <div>
-                    <p className="font-medium text-red-600 dark:text-red-400">
+                    <p className="font-medium text-slate-600 dark:text-slate-400">
                       {result.lapsedPolicies}
                     </p>
                     <p className="text-slate-500">Lapsed</p>
