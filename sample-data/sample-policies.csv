@@ -1,0 +1,12 @@
+policyNumber,holderName,premium,status,daysUntilLapse
+POL-001,John Smith,1250.00,active,45
+POL-002,Jane Doe,850.00,active,12
+POL-003,Robert Johnson,2100.00,lapsed,0
+POL-004,Maria Garcia,1500.00,active,5
+POL-005,Michael Brown,950.00,active,28
+POL-006,Sarah Davis,1800.00,active,8
+POL-007,David Wilson,1200.00,lapsed,0
+POL-008,Lisa Martinez,1650.00,active,15
+POL-009,James Anderson,2250.00,active,3
+POL-010,Patricia Taylor,1100.00,active,22
+
