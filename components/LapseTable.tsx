@@ -18,24 +18,26 @@ export interface ActionAndSeverity {
 }
 
 export function deriveActionAndSeverity(statuses: string[]): ActionAndSeverity {
-  // First-match-wins precedence
+  // Combined Insurance
   if (statuses.includes('Lapse-Pending')) {
     return {
-      action: 'Urgent: contact client today (lapse imminent)',
+      action: 'Policy is about to lapse - contact client immediately',
       severity: 'critical'
     };
   }
   
-  if (statuses.includes('Act-Pastdue') && statuses.includes('IssNotPaid')) {
+  // American Amicable - Payment issues
+  if (statuses.includes('Act-Pastdue') || statuses.includes('IssNotPaid')) {
     return {
-      action: 'Notify agent to tell client to pay (payment past due)',
+      action: 'Notify client to pay outstanding premium',
       severity: 'high'
     };
   }
   
-  if (statuses.includes('Pending') && statuses.includes('NeedReqmnt')) {
+  // American Amicable - Missing information
+  if (statuses.includes('Pending') || statuses.includes('NeedReqmnt')) {
     return {
-      action: 'Review with carrier to figure out next steps (missing requirements)',
+      action: 'Missing information - review with carrier to determine next steps',
       severity: 'medium'
     };
   }
@@ -50,6 +52,7 @@ interface LapseTableProps {
   carrierLabel: 'Combined' | 'American Amicable';
   policies: Policy[];
   derive: typeof deriveActionAndSeverity;
+  showPhone?: boolean;
 }
 
 const severityOrder: Record<Severity, number> = {
@@ -60,22 +63,22 @@ const severityOrder: Record<Severity, number> = {
 };
 
 const severityBgColors: Record<Severity, string> = {
-  critical: 'bg-red-50 hover:bg-red-100',
+  critical: 'bg-white hover:bg-slate-50',
   high: 'bg-amber-50 hover:bg-amber-100',
   medium: 'bg-yellow-50 hover:bg-yellow-100',
   low: 'bg-white hover:bg-slate-50'
 };
 
-export default function LapseTable({ carrierLabel, policies, derive }: LapseTableProps) {
+export default function LapseTable({ carrierLabel, policies, derive, showPhone = true }: LapseTableProps) {
   // Sort by severity, then by daysToLapse
   const sortedPolicies = [...policies].sort((a, b) => {
     const aResult = derive(a.statuses);
     const bResult = derive(b.statuses);
-    
+
     // First, sort by severity
     const severityDiff = severityOrder[aResult.severity] - severityOrder[bResult.severity];
     if (severityDiff !== 0) return severityDiff;
-    
+
     // Then by daysToLapse (ascending)
     const aDays = a.daysToLapse ?? Infinity;
     const bDays = b.daysToLapse ?? Infinity;
@@ -85,7 +88,7 @@ export default function LapseTable({ carrierLabel, policies, derive }: LapseTabl
   return (
     <div className="rounded-2xl border-2 border-slate-200 bg-white shadow-sm p-6">
       <h3 className="text-xl font-semibold text-black mb-4">{carrierLabel}</h3>
-      
+
       {sortedPolicies.length === 0 ? (
         <div className="text-center py-12 text-slate-500">
           <p className="text-sm">No policies currently flagged.</p>
@@ -101,9 +104,11 @@ export default function LapseTable({ carrierLabel, policies, derive }: LapseTabl
                 <th scope="col" className="text-left text-sm font-semibold text-slate-700 p-3 sticky top-0 bg-white z-10 border-b border-slate-200">
                   Last Name
                 </th>
-                <th scope="col" className="text-left text-sm font-semibold text-slate-700 p-3 sticky top-0 bg-white z-10 border-b border-slate-200">
-                  Phone
-                </th>
+                {showPhone && (
+                  <th scope="col" className="text-left text-sm font-semibold text-slate-700 p-3 sticky top-0 bg-white z-10 border-b border-slate-200">
+                    Phone
+                  </th>
+                )}
                 <th scope="col" className="text-left text-sm font-semibold text-slate-700 p-3 sticky top-0 bg-white z-10 border-b border-slate-200">
                   Recommended Action
                 </th>
@@ -113,7 +118,7 @@ export default function LapseTable({ carrierLabel, policies, derive }: LapseTabl
               {sortedPolicies.map((policy) => {
                 const { action, severity } = derive(policy.statuses);
                 const bgColor = severityBgColors[severity];
-                
+
                 return (
                   <tr 
                     key={policy.id}
@@ -125,12 +130,14 @@ export default function LapseTable({ carrierLabel, policies, derive }: LapseTabl
                     <td className="text-sm text-slate-900 p-3">
                       {policy.insuredLastName}
                     </td>
-                    <td className="text-sm text-slate-600 p-3">
-                      {policy.phone || '—'}
-                    </td>
+                    {showPhone && (
+                      <td className="text-sm text-slate-600 p-3">
+                        {policy.phone || '—'}
+                      </td>
+                    )}
                     <td className="text-sm text-slate-900 p-3">
                       <span className={`inline-flex items-center gap-2 ${
-                        severity === 'critical' ? 'font-semibold text-red-700' :
+                        severity === 'critical' ? 'font-semibold text-black' :
                         severity === 'high' ? 'font-medium text-amber-700' :
                         severity === 'medium' ? 'text-yellow-700' :
                         'text-slate-600'

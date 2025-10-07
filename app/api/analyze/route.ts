@@ -366,7 +366,7 @@ export async function POST(request: NextRequest) {
       const policies = parseAMAMCSV(content);
       const result = await analyzeAmericanAmicable(content);
       results.push(result);
-      
+
       // Extract lapse policies
       const amamLapsePolicies = extractLapsePoliciesFromAMAM(policies);
       lapsePolicies.push(...amamLapsePolicies);
@@ -379,7 +379,7 @@ export async function POST(request: NextRequest) {
       const policies = parseCombinedCSV(content);
       const result = await analyzeCombined(content);
       results.push(result);
-      
+
       // Extract lapse policies
       const combinedLapsePolicies = extractLapsePoliciesFromCombined(policies);
       lapsePolicies.push(...combinedLapsePolicies);

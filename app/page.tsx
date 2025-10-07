@@ -90,7 +90,7 @@ export default function Home() {
       console.log('📊 Analysis Results:', JSON.stringify(data, null, 2));
       console.log('📈 Detailed Results:', data.results);
       setResults(data.results);
-      
+
       // Set lapse policies if available
       if (data.lapsePolicies) {
         setLapsePolicies(data.lapsePolicies);

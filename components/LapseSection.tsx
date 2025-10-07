@@ -16,13 +16,14 @@ export default function LapseSection({ policies }: LapseSectionProps) {
       <h2 className="text-2xl font-semibold text-black mb-8">
         Policies That Are About to Lapse
       </h2>
-      
+
       <div className="space-y-6">
         {/* Combined Insurance Table */}
         <LapseTable
           carrierLabel="Combined"
           policies={combinedPolicies}
           derive={deriveActionAndSeverity}
+          showPhone={false}
         />
         
         {/* American Amicable Table */}
@@ -30,6 +31,7 @@ export default function LapseSection({ policies }: LapseSectionProps) {
           carrierLabel="American Amicable"
           policies={americanAmicablePolicies}
           derive={deriveActionAndSeverity}
+          showPhone={true}
         />
       </div>
     </div>
