@@ -33,3 +33,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Policy data files (sensitive)
+AMAM_polciies.csv
+AMAM_policies.csv
+GTL_policies.csv
+Combined_policies.csv
+*_policies.csv
