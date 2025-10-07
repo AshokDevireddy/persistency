@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { PersistencyResult } from '@/app/page';
+import StatusBreakdownCharts from './StatusBreakdownCharts';
 
 interface PersistencyChartProps {
   results: PersistencyResult[];
@@ -207,13 +208,24 @@ export default function PersistencyChart({ results }: PersistencyChartProps) {
               ))}
             </Pie>
             <Tooltip content={<CustomTooltip />} />
-            <Legend
-              verticalAlign="bottom"
+            <Legend 
+              verticalAlign="bottom" 
               height={36}
               iconType="circle"
             />
           </PieChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* Detailed Status Breakdown Charts */}
+      <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {results.map((result) => (
+          <StatusBreakdownCharts
+            key={result.carrier}
+            carrier={result.carrier}
+            statusBreakdown={result.statusBreakdowns[selectedTimeRange]}
+          />
+        ))}
       </div>
     </div>
   );

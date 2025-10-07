@@ -15,6 +15,13 @@ export interface TimeRangeAnalysis {
   negativeCount: number;
 }
 
+export interface StatusBreakdown {
+  [status: string]: {
+    count: number;
+    percentage: number;
+  };
+}
+
 export interface PersistencyResult {
   carrier: string;
   timeRanges: {
@@ -22,6 +29,12 @@ export interface PersistencyResult {
     '6': TimeRangeAnalysis;
     '9': TimeRangeAnalysis;
     'All': TimeRangeAnalysis;
+  };
+  statusBreakdowns: {
+    '3': StatusBreakdown;
+    '6': StatusBreakdown;
+    '9': StatusBreakdown;
+    'All': StatusBreakdown;
   };
   totalPolicies: number;
 }
