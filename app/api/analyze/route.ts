@@ -780,13 +780,72 @@ export async function POST(request: NextRequest) {
     const results = [];
     const lapsePolicies: any[] = [];
 
+    // Get filtering parameters
+    const filterMode = formData.get('filter_mode') as string | null;
+    const writingAgentNumbersStr = formData.get('writing_agent_numbers') as string | null;
+    let writingAgentNumbers: string[] = [];
+
+    if (writingAgentNumbersStr) {
+      try {
+        writingAgentNumbers = JSON.parse(writingAgentNumbersStr);
+      } catch (e) {
+        console.error('Failed to parse writing agent numbers:', e);
+      }
+    }
+
+    // Helper function to check if a policy should be included
+    const shouldIncludePolicy = (agentNumber: string): boolean => {
+      if (!filterMode || writingAgentNumbers.length === 0) {
+        return true; // No filtering, include all
+      }
+      // Clean the agent number and check if it's in the filter list
+      const cleanNumber = agentNumber?.replace(/[="()]/g, '').trim();
+      return writingAgentNumbers.includes(cleanNumber);
+    };
+
     // Process American Amicable
     const americanAmicableFile = formData.get('american-amicable') as File | null;
     if (americanAmicableFile) {
       const content = await americanAmicableFile.text();
-      const policies = parseAMAMCSV(content);
+      let policies = parseAMAMCSV(content);
+
+      // Filter policies by writing agent if needed
+      if (filterMode && writingAgentNumbers.length > 0) {
+        policies = policies.filter(p => shouldIncludePolicy(p.WritingAgent));
+      }
+
       const result = await analyzeAmericanAmicable(content);
-      results.push(result);
+
+      // Re-analyze with filtered data
+      if (filterMode && writingAgentNumbers.length > 0) {
+        const filteredResults: any = {};
+        const filteredStatusBreakdowns: any = {};
+
+        const policies3Months = filterAMAMPoliciesByTimeRange(policies, 3);
+        filteredResults['3'] = analyzeAMAMTimeRange(policies3Months);
+        filteredStatusBreakdowns['3'] = getAMAMStatusBreakdown(policies3Months);
+
+        const policies6Months = filterAMAMPoliciesByTimeRange(policies, 6);
+        filteredResults['6'] = analyzeAMAMTimeRange(policies6Months);
+        filteredStatusBreakdowns['6'] = getAMAMStatusBreakdown(policies6Months);
+
+        const policies9Months = filterAMAMPoliciesByTimeRange(policies, 9);
+        filteredResults['9'] = analyzeAMAMTimeRange(policies9Months);
+        filteredStatusBreakdowns['9'] = getAMAMStatusBreakdown(policies9Months);
+
+        filteredResults['All'] = analyzeAMAMTimeRange(policies);
+        filteredStatusBreakdowns['All'] = getAMAMStatusBreakdown(policies);
+
+        results.push({
+          carrier: 'American Amicable',
+          timeRanges: filteredResults,
+          statusBreakdowns: filteredStatusBreakdowns,
+          totalPolicies: policies.length,
+          persistencyRate: filteredResults['All'].positivePercentage
+        });
+      } else {
+        results.push(result);
+      }
 
       // Extract lapse policies
       const amamLapsePolicies = extractLapsePoliciesFromAMAM(policies);
