@@ -160,7 +160,7 @@ export default function PersistencyChart({ results }: PersistencyChartProps) {
             <div className="space-y-2">
               <div>
                 <p className="text-3xl font-bold text-black">
-                  {result.timeRanges[selectedTimeRange].positivePercentage.toFixed(2)}%
+                  {(result.timeRanges[selectedTimeRange]?.positivePercentage ?? 0).toFixed(2)}%
                 </p>
                 <p className="text-xs text-slate-600">
                   Persistency Rate ({selectedTimeRange === 'All' ? 'All Time' : `${selectedTimeRange} Months`})
@@ -170,13 +170,13 @@ export default function PersistencyChart({ results }: PersistencyChartProps) {
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <p className="font-medium text-black">
-                      {result.timeRanges[selectedTimeRange].positiveCount.toLocaleString()}
+                      {(result.timeRanges[selectedTimeRange]?.positiveCount ?? 0).toLocaleString()}
                     </p>
                     <p className="text-slate-500">Active</p>
                   </div>
                   <div>
                     <p className="font-medium text-slate-600">
-                      {result.timeRanges[selectedTimeRange].negativeCount.toLocaleString()}
+                      {(result.timeRanges[selectedTimeRange]?.negativeCount ?? 0).toLocaleString()}
                     </p>
                     <p className="text-slate-500">Inactive</p>
                   </div>

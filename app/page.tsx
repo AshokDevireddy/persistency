@@ -8,7 +8,7 @@ import LapseSection from '@/components/LapseSection';
 import { Policy } from '@/components/LapseTable';
 import { BarChart3, TrendingUp } from 'lucide-react';
 
-export type CarrierType = 'american-amicable' | 'combined';
+export type CarrierType = 'american-amicable' | 'combined' | 'american-home-life';
 
 export interface TimeRangeAnalysis {
   positivePercentage: number;
@@ -45,6 +45,7 @@ export default function Home() {
   const [files, setFiles] = useState<Record<CarrierType, File | null>>({
     'american-amicable': null,
     'combined': null,
+    'american-home-life': null,
   });
   const [results, setResults] = useState<PersistencyResult[] | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -106,7 +107,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="border-b border-slate-200 bg-white sticky top-0 z-10">
+      <header className="border-b border-slate-200 bg-white sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-black rounded-lg">
@@ -137,7 +138,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 max-w-6xl mx-auto">
             <FileUpload
               carrier="american-amicable"
               label="American Amicable"
@@ -149,6 +150,12 @@ export default function Home() {
               label="Combined Insurance"
               onFileChange={handleFileChange}
               file={files['combined']}
+            />
+            <FileUpload
+              carrier="american-home-life"
+              label="American Home Life"
+              onFileChange={handleFileChange}
+              file={files['american-home-life']}
             />
           </div>
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 
 // ============================================================
 // Type Definitions
@@ -30,6 +31,14 @@ interface CombinedPolicyData {
   policy_number: string;
   status: string;
   effective_date: string;
+  [key: string]: string;
+}
+
+interface AmericanHomeLifePolicyData {
+  policy_number: string;
+  status: string;
+  ISSUEDATE: string;
+  STATUSCATEGORY: string;
   [key: string]: string;
 }
 
@@ -153,7 +162,7 @@ function getAMAMStatusBreakdown(policies: AMAMPolicyData[]): StatusBreakdown {
   Object.entries(statusCounts).forEach(([status, count]) => {
     breakdown[status] = {
       count,
-      percentage: total > 0 ? (count / total) * 100 : 0
+      percentage: total > 0 ? Math.round((count / total) * 100 * 100) / 100 : 0
     };
   });
 
@@ -275,7 +284,7 @@ function getCombinedStatusBreakdown(policies: CombinedPolicyData[]): StatusBreak
   Object.entries(statusCounts).forEach(([status, count]) => {
     breakdown[status] = {
       count,
-      percentage: total > 0 ? (count / total) * 100 : 0
+      percentage: total > 0 ? Math.round((count / total) * 100 * 100) / 100 : 0
     };
   });
 
@@ -353,6 +362,260 @@ function extractLapsePoliciesFromCombined(policies: CombinedPolicyData[]): any[]
     }));
 }
 
+// ============================================================
+// American Home Life Analysis Functions
+// ============================================================
+
+function parseAmericanHomeLifeCSV(fileContent: string): AmericanHomeLifePolicyData[] {
+  // Split content into lines
+  const lines = fileContent.split('\n');
+  
+  // Skip the first line (header) and use the second line as the actual header
+  const actualHeader = lines[1];
+  const dataLines = lines.slice(2); // Skip both first and second lines
+  
+  // Create CSV content with the correct header
+  const correctedContent = actualHeader + '\n' + dataLines.join('\n');
+  
+  const parsed = Papa.parse(correctedContent, {
+    header: true,
+    skipEmptyLines: true,
+  });
+
+  return parsed.data as AmericanHomeLifePolicyData[];
+}
+
+function parseAmericanHomeLifeDate(dateStr: string): Date {
+  // Handle undefined, null, or empty strings
+  if (!dateStr || typeof dateStr !== 'string' || dateStr.trim() === '') {
+    throw new Error(`Invalid date string: ${dateStr}`);
+  }
+  
+  // Try different date formats that might be in Excel
+  const trimmedDate = dateStr.trim();
+  
+  // Try YYYY-MM-DD format first
+  if (trimmedDate.includes('-')) {
+    const parts = trimmedDate.split('-');
+    if (parts.length === 3) {
+      const [year, month, day] = parts.map(Number);
+      if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+        return new Date(year, month - 1, day);
+      }
+    }
+  }
+  
+  // Try MM/DD/YYYY format
+  if (trimmedDate.includes('/')) {
+    const parts = trimmedDate.split('/');
+    if (parts.length === 3) {
+      const [month, day, year] = parts.map(Number);
+      if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+        return new Date(year, month - 1, day);
+      }
+    }
+  }
+  
+  // Try to parse as a date directly
+  const parsedDate = new Date(trimmedDate);
+  if (!isNaN(parsedDate.getTime())) {
+    return parsedDate;
+  }
+  
+  throw new Error(`Unable to parse date: ${dateStr}`);
+}
+
+function analyzeAmericanHomeLifePolicies(policies: AmericanHomeLifePolicyData[]) {
+  console.log('📊 Starting American Home Life policy analysis...');
+  console.log(`📈 Total AHL policies loaded: ${policies.length}`);
+  
+  // Debug: Log the first policy to see what fields are available
+  if (policies.length > 0) {
+    console.log('🔍 First policy fields:', Object.keys(policies[0]));
+    console.log('🔍 First policy sample:', policies[0]);
+  }
+  
+  const timeRanges = {
+    '3': { positiveCount: 0, negativeCount: 0, positivePercentage: 0, negativePercentage: 0 },
+    '6': { positiveCount: 0, negativeCount: 0, positivePercentage: 0, negativePercentage: 0 },
+    '9': { positiveCount: 0, negativeCount: 0, positivePercentage: 0, negativePercentage: 0 },
+    'All': { positiveCount: 0, negativeCount: 0, positivePercentage: 0, negativePercentage: 0 }
+  };
+
+  const statusBreakdowns = {
+    '3': {} as StatusBreakdown,
+    '6': {} as StatusBreakdown,
+    '9': {} as StatusBreakdown,
+    'All': {} as StatusBreakdown
+  };
+
+  const currentDate = new Date();
+  let processedCount = 0;
+  let skippedCount = 0;
+  
+  policies.forEach((policy, index) => {
+    try {
+      // Determine persistency impact based on STATUSCATEGORY first
+      const statusCategory = policy.STATUSCATEGORY?.trim();
+      let persistencyImpact: 'positive' | 'negative' | 'neutral' = 'neutral';
+      
+      switch (statusCategory) {
+        case 'Active':
+          persistencyImpact = 'positive';
+          break;
+        case 'Withdrawn':
+        case 'Lapsed':
+        case 'Terminated':
+        case 'Closed':
+          persistencyImpact = 'negative';
+          break;
+        case 'Decline':
+        case 'Issued Not In Force':
+        case 'Pending':
+        case 'Not Taken':
+        case 'LM App Decline':
+          persistencyImpact = 'neutral';
+          break;
+        default:
+          persistencyImpact = 'neutral';
+      }
+      
+      // Log cases where policy impacts persistency but ISSUEDATE is blank/invalid
+      if (persistencyImpact !== 'neutral' && (!policy.ISSUEDATE || policy.ISSUEDATE.trim() === '')) {
+        console.log(`🚨 DATA QUALITY ISSUE - Policy ${index}: STATUSCATEGORY="${statusCategory}" impacts persistency but ISSUEDATE is blank/invalid:`, {
+          policyIndex: index,
+          statusCategory: statusCategory,
+          issueDate: policy.ISSUEDATE,
+          persistencyImpact: persistencyImpact,
+          policyData: policy
+        });
+      }
+      
+      // Check if ISSUEDATE exists and is valid
+      if (!policy.ISSUEDATE || typeof policy.ISSUEDATE !== 'string') {
+        console.log(`⚠️ Skipping policy ${index}: missing or invalid ISSUEDATE`);
+        skippedCount++;
+        return;
+      }
+      
+      const issueDate = parseAmericanHomeLifeDate(policy.ISSUEDATE);
+      const monthsSinceIssue = Math.floor(
+        (currentDate.getTime() - issueDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
+      );
+    
+      const isPositive = persistencyImpact === 'positive';
+      const isNegative = persistencyImpact === 'negative';
+
+    // Update time ranges - only count policies with persistency impact
+    Object.keys(timeRanges).forEach(range => {
+      const rangeMonths = range === 'All' ? Infinity : parseInt(range);
+      if (monthsSinceIssue <= rangeMonths) {
+        // Count persistency impact for time ranges
+        if (persistencyImpact !== 'neutral') {
+          if (isPositive) {
+            timeRanges[range as keyof typeof timeRanges].positiveCount++;
+          } else if (isNegative) {
+            timeRanges[range as keyof typeof timeRanges].negativeCount++;
+          }
+        }
+
+        // Update status breakdown using STATUSCATEGORY - include ALL statuses
+        const status = statusCategory;
+        if (!statusBreakdowns[range as keyof typeof statusBreakdowns][status]) {
+          statusBreakdowns[range as keyof typeof statusBreakdowns][status] = { count: 0, percentage: 0 };
+        }
+        statusBreakdowns[range as keyof typeof statusBreakdowns][status].count++;
+      }
+    });
+    
+    processedCount++;
+    } catch (error) {
+      console.log(`⚠️ Error processing policy ${index}:`, error);
+      skippedCount++;
+    }
+  });
+  
+  console.log(`✅ Processed ${processedCount} policies, skipped ${skippedCount} policies`);
+
+  // Calculate percentages
+  Object.keys(timeRanges).forEach(range => {
+    const rangeData = timeRanges[range as keyof typeof timeRanges];
+    const persistencyTotal = rangeData.positiveCount + rangeData.negativeCount;
+    
+    if (persistencyTotal > 0) {
+      rangeData.positivePercentage = Math.round((rangeData.positiveCount / persistencyTotal) * 100 * 100) / 100;
+      rangeData.negativePercentage = Math.round((rangeData.negativeCount / persistencyTotal) * 100 * 100) / 100;
+    } else {
+      // Set to 0 if no policies with persistency impact
+      rangeData.positivePercentage = 0;
+      rangeData.negativePercentage = 0;
+    }
+
+    // Calculate status percentages - use total count of ALL policies in this time range
+    const statusData = statusBreakdowns[range as keyof typeof statusBreakdowns];
+    const totalStatusCount = Object.values(statusData).reduce((sum, status) => sum + status.count, 0);
+    Object.keys(statusData).forEach(status => {
+      statusData[status].percentage = totalStatusCount > 0 ? Math.round((statusData[status].count / totalStatusCount) * 100 * 100) / 100 : 0;
+    });
+  });
+
+  const results = {
+    '3': timeRanges['3'] as AnalysisResult,
+    '6': timeRanges['6'] as AnalysisResult,
+    '9': timeRanges['9'] as AnalysisResult,
+    'All': timeRanges['All'] as AnalysisResult
+  };
+
+  return {
+    carrier: 'American Home Life',
+    timeRanges: results,
+    statusBreakdowns,
+    totalPolicies: policies.length,
+    persistencyRate: results['All'].positivePercentage
+  };
+}
+
+async function analyzeAmericanHomeLife(fileContent: string) {
+  const policies = parseAmericanHomeLifeCSV(fileContent);
+  return analyzeAmericanHomeLifePolicies(policies);
+}
+
+function parseAmericanHomeLifeFromExcelBuffer(buffer: ArrayBuffer): AmericanHomeLifePolicyData[] {
+  const workbook = XLSX.read(buffer, { type: 'array' });
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  // Get raw rows
+  const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+  if (!rows || rows.length < 2) return [];
+  const headerRow = rows[1]; // second row contains actual headers
+  const dataRows = rows.slice(2);
+  
+  console.log('🔍 Excel header row:', headerRow);
+  
+  const policies: AmericanHomeLifePolicyData[] = dataRows
+    .filter(r => Array.isArray(r) && r.length > 0 && r.some(cell => cell !== undefined && cell !== null && String(cell).trim() !== ''))
+    .map((row, index) => {
+      const obj: any = {};
+      headerRow.forEach((h: any, idx: number) => {
+        if (h !== undefined && h !== null && String(h).trim() !== '') {
+          const key = String(h).trim();
+          const value = row[idx];
+          obj[key] = value !== undefined && value !== null ? String(value) : '';
+        }
+      });
+      
+      // Debug first few rows
+      if (index < 3) {
+        console.log(`🔍 Excel row ${index}:`, obj);
+      }
+      
+      return obj as AmericanHomeLifePolicyData;
+    });
+    
+  console.log(`📊 Parsed ${policies.length} policies from Excel`);
+  return policies;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -383,6 +646,25 @@ export async function POST(request: NextRequest) {
       // Extract lapse policies
       const combinedLapsePolicies = extractLapsePoliciesFromCombined(policies);
       lapsePolicies.push(...combinedLapsePolicies);
+    }
+
+    // Process American Home Life
+    const americanHomeLifeFile = formData.get('american-home-life') as File | null;
+    if (americanHomeLifeFile) {
+      const fileName = americanHomeLifeFile.name?.toLowerCase() || '';
+      if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+        const arrayBuffer = await americanHomeLifeFile.arrayBuffer();
+        const policies = parseAmericanHomeLifeFromExcelBuffer(arrayBuffer);
+        const result = analyzeAmericanHomeLifePolicies(policies);
+        results.push(result);
+      } else {
+        const content = await americanHomeLifeFile.text();
+        const policies = parseAmericanHomeLifeCSV(content);
+        const result = analyzeAmericanHomeLife(content);
+        results.push(result);
+      }
+
+      // Note: No lapse policy extraction for American Home Life as per requirements
     }
 
     if (results.length === 0) {
