@@ -37,7 +37,7 @@ interface CombinedPolicyData {
 interface AmericanHomeLifePolicyData {
   policy_number: string;
   status: string;
-  ISSUEDATE: string;
+  ORIGEFFDATE: string;
   STATUSCATEGORY: string;
   [key: string]: string;
 }
@@ -614,6 +614,15 @@ function analyzeAetnaPolicies(policies: AetnaPolicyData[]) {
   let skippedCount = 0;
   
   policies.forEach((policy, index) => {
+    console.log(`🔍 Processing Aetna Policy ${index}:`, {
+      policyNumber: policy.POLICYNUMBER,
+      statusCategory: policy.STATUSCATEGORY,
+      origEffDate: policy.ORIGEFFDATE,
+      hasOrigEffDate: !!policy.ORIGEFFDATE,
+      origEffDateType: typeof policy.ORIGEFFDATE,
+      origEffDateTrimmed: policy.ORIGEFFDATE?.trim()
+    });
+
     try {
       // Determine persistency impact based on STATUSCATEGORY first
       const statusCategory = policy.STATUSCATEGORY?.trim();
@@ -640,6 +649,12 @@ function analyzeAetnaPolicies(policies: AetnaPolicyData[]) {
           persistencyImpact = 'neutral';
       }
       
+      console.log(`📊 Aetna Policy ${index} persistency impact:`, {
+        statusCategory,
+        persistencyImpact,
+        willBeProcessed: persistencyImpact !== 'neutral'
+      });
+      
       // Log cases where policy impacts persistency but ORIGEFFDATE is blank/invalid
       if (persistencyImpact !== 'neutral' && (!policy.ORIGEFFDATE || policy.ORIGEFFDATE.trim() === '')) {
         console.log(`🚨 DATA QUALITY ISSUE - Aetna Policy ${index}: STATUSCATEGORY="${statusCategory}" impacts persistency but ORIGEFFDATE is blank/invalid:`, {
@@ -653,12 +668,23 @@ function analyzeAetnaPolicies(policies: AetnaPolicyData[]) {
       
       // Check if ORIGEFFDATE exists and is valid
       if (!policy.ORIGEFFDATE || typeof policy.ORIGEFFDATE !== 'string') {
-        console.log(`⚠️ Skipping Aetna policy ${index}: missing or invalid ORIGEFFDATE`);
+        console.log(`⚠️ Skipping Aetna policy ${index}: missing or invalid ORIGEFFDATE`, {
+          policyNumber: policy.POLICYNUMBER,
+          origEffDate: policy.ORIGEFFDATE,
+          origEffDateType: typeof policy.ORIGEFFDATE,
+          reason: !policy.ORIGEFFDATE ? 'missing' : 'invalid type'
+        });
         skippedCount++;
         return;
       }
       
       const issueDate = parseAetnaDate(policy.ORIGEFFDATE);
+      console.log(`✅ Aetna Policy ${index} successfully parsed date:`, {
+        policyNumber: policy.POLICYNUMBER,
+        originalDate: policy.ORIGEFFDATE,
+        parsedDate: issueDate.toISOString(),
+        persistencyImpact
+      });
       const monthsSinceIssue = Math.floor(
         (currentDate.getTime() - issueDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
       );
@@ -693,6 +719,13 @@ function analyzeAetnaPolicies(policies: AetnaPolicyData[]) {
         console.log(`⚠️ Error processing Aetna policy ${index}:`, error);
         skippedCount++;
       }
+    });
+
+    console.log(`📈 Aetna Processing Summary:`, {
+      totalPolicies: policies.length,
+      processedCount,
+      skippedCount,
+      processedPercentage: policies.length > 0 ? Math.round((processedCount / policies.length) * 100 * 100) / 100 : 0
     });
     
     console.log(`✅ Processed ${processedCount} Aetna policies, skipped ${skippedCount} policies`);
@@ -850,6 +883,15 @@ function analyzeAflacPolicies(policies: AflacPolicyData[]) {
   let skippedCount = 0;
   
   policies.forEach((policy, index) => {
+    console.log(`🔍 Processing Aflac Policy ${index}:`, {
+      policyNumber: policy.POLICYNUMBER,
+      statusCategory: policy.STATUSCATEGORY,
+      origEffDate: policy.ORIGEFFDATE,
+      hasOrigEffDate: !!policy.ORIGEFFDATE,
+      origEffDateType: typeof policy.ORIGEFFDATE,
+      origEffDateTrimmed: policy.ORIGEFFDATE?.trim()
+    });
+
     try {
       // Determine persistency impact based on STATUSCATEGORY first
       const statusCategory = policy.STATUSCATEGORY?.trim();
@@ -876,6 +918,12 @@ function analyzeAflacPolicies(policies: AflacPolicyData[]) {
           persistencyImpact = 'neutral';
       }
       
+      console.log(`📊 Aflac Policy ${index} persistency impact:`, {
+        statusCategory,
+        persistencyImpact,
+        willBeProcessed: persistencyImpact !== 'neutral'
+      });
+      
       // Log cases where policy impacts persistency but ORIGEFFDATE is blank/invalid
       if (persistencyImpact !== 'neutral' && (!policy.ORIGEFFDATE || policy.ORIGEFFDATE.trim() === '')) {
         console.log(`🚨 DATA QUALITY ISSUE - Aflac Policy ${index}: STATUSCATEGORY="${statusCategory}" impacts persistency but ORIGEFFDATE is blank/invalid:`, {
@@ -889,12 +937,23 @@ function analyzeAflacPolicies(policies: AflacPolicyData[]) {
       
       // Check if ORIGEFFDATE exists and is valid
       if (!policy.ORIGEFFDATE || typeof policy.ORIGEFFDATE !== 'string') {
-        console.log(`⚠️ Skipping Aflac policy ${index}: missing or invalid ORIGEFFDATE`);
+        console.log(`⚠️ Skipping Aflac policy ${index}: missing or invalid ORIGEFFDATE`, {
+          policyNumber: policy.POLICYNUMBER,
+          origEffDate: policy.ORIGEFFDATE,
+          origEffDateType: typeof policy.ORIGEFFDATE,
+          reason: !policy.ORIGEFFDATE ? 'missing' : 'invalid type'
+        });
         skippedCount++;
         return;
       }
       
       const issueDate = parseAflacDate(policy.ORIGEFFDATE);
+      console.log(`✅ Aflac Policy ${index} successfully parsed date:`, {
+        policyNumber: policy.POLICYNUMBER,
+        originalDate: policy.ORIGEFFDATE,
+        parsedDate: issueDate.toISOString(),
+        persistencyImpact
+      });
       const monthsSinceIssue = Math.floor(
         (currentDate.getTime() - issueDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
       );
@@ -929,6 +988,13 @@ function analyzeAflacPolicies(policies: AflacPolicyData[]) {
         console.log(`⚠️ Error processing Aflac policy ${index}:`, error);
         skippedCount++;
       }
+    });
+
+    console.log(`📈 Aflac Processing Summary:`, {
+      totalPolicies: policies.length,
+      processedCount,
+      skippedCount,
+      processedPercentage: policies.length > 0 ? Math.round((processedCount / policies.length) * 100 * 100) / 100 : 0
     });
     
     console.log(`✅ Processed ${processedCount} Aflac policies, skipped ${skippedCount} policies`);
@@ -997,7 +1063,7 @@ function parseAmericanHomeLifeCSV(fileContent: string): AmericanHomeLifePolicyDa
   });
   
   return parsed.data.map((row: any) => ({
-    ISSUEDATE: row.ISSUEDATE || '',
+    ORIGEFFDATE: row.ORIGEFFDATE || '',
     STATUSCATEGORY: row.STATUSCATEGORY || '',
     ...row
   }));
@@ -1042,7 +1108,7 @@ function parseAmericanHomeLifeFromExcelBuffer(buffer: ArrayBuffer): AmericanHome
 function parseAmericanHomeLifeDate(dateStr: string): Date {
   // Handle undefined, null, or empty strings
   if (!dateStr || typeof dateStr !== 'string' || dateStr.trim() === '') {
-    throw new Error(`Invalid date string: ${dateStr}`);
+    throw new Error(`Invalid date string: "${dateStr}"`);
   }
   
   // Try different date formats that might be in Excel
@@ -1076,7 +1142,7 @@ function parseAmericanHomeLifeDate(dateStr: string): Date {
     return parsedDate;
   }
   
-  throw new Error(`Unable to parse date: ${dateStr}`);
+  throw new Error(`Unable to parse date: "${dateStr}"`);
 }
 
 function analyzeAmericanHomeLifePolicies(policies: AmericanHomeLifePolicyData[]) {
@@ -1115,14 +1181,43 @@ function analyzeAmericanHomeLifePolicies(policies: AmericanHomeLifePolicyData[])
   };
 
   // Process each policy
-  policies.forEach(policy => {
+  let processedCount = 0;
+  let skippedCount = 0;
+  
+  policies.forEach((policy, index) => {
+    console.log(`🔍 Processing American Home Life Policy ${index}:`, {
+      origEffDate: policy.ORIGEFFDATE,
+      statusCategory: policy.STATUSCATEGORY,
+      hasOrigEffDate: !!policy.ORIGEFFDATE,
+      origEffDateType: typeof policy.ORIGEFFDATE,
+      origEffDateTrimmed: policy.ORIGEFFDATE?.trim()
+    });
+
     try {
-      const issueDate = parseAmericanHomeLifeDate(policy.ISSUEDATE);
+      // Check if ORIGEFFDATE exists and is valid before parsing
+      if (!policy.ORIGEFFDATE || typeof policy.ORIGEFFDATE !== 'string' || policy.ORIGEFFDATE.trim() === '') {
+        console.log(`⚠️ Skipping American Home Life policy ${index}: missing or invalid ORIGEFFDATE`, {
+          origEffDate: policy.ORIGEFFDATE,
+          origEffDateType: typeof policy.ORIGEFFDATE,
+          reason: !policy.ORIGEFFDATE ? 'missing' : 'empty/invalid'
+        });
+        skippedCount++;
+        return;
+      }
+
+      const issueDate = parseAmericanHomeLifeDate(policy.ORIGEFFDATE);
       const impact = getPersistencyImpact(policy.STATUSCATEGORY);
       
+      console.log(`📊 American Home Life Policy ${index} persistency impact:`, {
+        statusCategory: policy.STATUSCATEGORY,
+        persistencyImpact: impact,
+        willBeProcessed: impact !== 'neutral',
+        parsedDate: issueDate.toISOString()
+      });
+      
       // Log data quality issues
-      if (impact !== 'neutral' && !policy.ISSUEDATE) {
-        console.warn(`⚠️ Policy with persistency-impacting status "${policy.STATUSCATEGORY}" has blank ISSUEDATE`);
+      if (impact !== 'neutral' && !policy.ORIGEFFDATE) {
+        console.warn(`⚠️ Policy with persistency-impacting status "${policy.STATUSCATEGORY}" has blank ORIGEFFDATE`);
       }
 
       // Only count policies that have persistency impact
@@ -1161,9 +1256,23 @@ function analyzeAmericanHomeLifePolicies(policies: AmericanHomeLifePolicyData[])
           }
         }
       }
+      
+      processedCount++;
     } catch (error) {
-      console.warn(`⚠️ Skipping policy with invalid date: ${policy.ISSUEDATE}`, error);
+      console.log(`⚠️ Error processing American Home Life policy ${index}:`, {
+        origEffDate: policy.ORIGEFFDATE,
+        error: error instanceof Error ? error.message : String(error),
+        policyData: policy
+      });
+      skippedCount++;
     }
+  });
+
+  console.log(`📈 American Home Life Processing Summary:`, {
+    totalPolicies: policies.length,
+    processedCount,
+    skippedCount,
+    processedPercentage: policies.length > 0 ? Math.round((processedCount / policies.length) * 100 * 100) / 100 : 0
   });
 
   // Calculate percentages for each time range
@@ -1189,7 +1298,7 @@ function analyzeAmericanHomeLifePolicies(policies: AmericanHomeLifePolicyData[])
 
     policies.forEach(policy => {
       try {
-        const issueDate = parseAmericanHomeLifeDate(policy.ISSUEDATE);
+        const issueDate = parseAmericanHomeLifeDate(policy.ORIGEFFDATE);
         if (issueDate >= cutoffDate) {
           const status = policy.STATUSCATEGORY || 'Unknown';
           statusCounts[status] = (statusCounts[status] || 0) + 1;
