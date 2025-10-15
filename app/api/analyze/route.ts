@@ -640,25 +640,25 @@ function analyzeAetnaPolicies(policies: AetnaPolicyData[]) {
           persistencyImpact = 'neutral';
       }
       
-      // Log cases where policy impacts persistency but ISSUEDATE is blank/invalid
-      if (persistencyImpact !== 'neutral' && (!policy.ISSUEDATE || policy.ISSUEDATE.trim() === '')) {
-        console.log(`🚨 DATA QUALITY ISSUE - Aetna Policy ${index}: STATUSCATEGORY="${statusCategory}" impacts persistency but ISSUEDATE is blank/invalid:`, {
+      // Log cases where policy impacts persistency but ORIGEFFDATE is blank/invalid
+      if (persistencyImpact !== 'neutral' && (!policy.ORIGEFFDATE || policy.ORIGEFFDATE.trim() === '')) {
+        console.log(`🚨 DATA QUALITY ISSUE - Aetna Policy ${index}: STATUSCATEGORY="${statusCategory}" impacts persistency but ORIGEFFDATE is blank/invalid:`, {
           policyIndex: index,
           statusCategory: statusCategory,
-          issueDate: policy.ISSUEDATE,
+          issueDate: policy.ORIGEFFDATE,
           persistencyImpact: persistencyImpact,
           policyData: policy
         });
       }
       
-      // Check if ISSUEDATE exists and is valid
-      if (!policy.ISSUEDATE || typeof policy.ISSUEDATE !== 'string') {
-        console.log(`⚠️ Skipping Aetna policy ${index}: missing or invalid ISSUEDATE`);
+      // Check if ORIGEFFDATE exists and is valid
+      if (!policy.ORIGEFFDATE || typeof policy.ORIGEFFDATE !== 'string') {
+        console.log(`⚠️ Skipping Aetna policy ${index}: missing or invalid ORIGEFFDATE`);
         skippedCount++;
         return;
       }
       
-      const issueDate = parseAetnaDate(policy.ISSUEDATE);
+      const issueDate = parseAetnaDate(policy.ORIGEFFDATE);
       const monthsSinceIssue = Math.floor(
         (currentDate.getTime() - issueDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
       );
@@ -876,25 +876,25 @@ function analyzeAflacPolicies(policies: AflacPolicyData[]) {
           persistencyImpact = 'neutral';
       }
       
-      // Log cases where policy impacts persistency but ISSUEDATE is blank/invalid
-      if (persistencyImpact !== 'neutral' && (!policy.ISSUEDATE || policy.ISSUEDATE.trim() === '')) {
-        console.log(`🚨 DATA QUALITY ISSUE - Aflac Policy ${index}: STATUSCATEGORY="${statusCategory}" impacts persistency but ISSUEDATE is blank/invalid:`, {
+      // Log cases where policy impacts persistency but ORIGEFFDATE is blank/invalid
+      if (persistencyImpact !== 'neutral' && (!policy.ORIGEFFDATE || policy.ORIGEFFDATE.trim() === '')) {
+        console.log(`🚨 DATA QUALITY ISSUE - Aflac Policy ${index}: STATUSCATEGORY="${statusCategory}" impacts persistency but ORIGEFFDATE is blank/invalid:`, {
           policyIndex: index,
           statusCategory: statusCategory,
-          issueDate: policy.ISSUEDATE,
+          issueDate: policy.ORIGEFFDATE,
           persistencyImpact: persistencyImpact,
           policyData: policy
         });
       }
       
-      // Check if ISSUEDATE exists and is valid
-      if (!policy.ISSUEDATE || typeof policy.ISSUEDATE !== 'string') {
-        console.log(`⚠️ Skipping Aflac policy ${index}: missing or invalid ISSUEDATE`);
+      // Check if ORIGEFFDATE exists and is valid
+      if (!policy.ORIGEFFDATE || typeof policy.ORIGEFFDATE !== 'string') {
+        console.log(`⚠️ Skipping Aflac policy ${index}: missing or invalid ORIGEFFDATE`);
         skippedCount++;
         return;
       }
       
-      const issueDate = parseAflacDate(policy.ISSUEDATE);
+      const issueDate = parseAflacDate(policy.ORIGEFFDATE);
       const monthsSinceIssue = Math.floor(
         (currentDate.getTime() - issueDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
       );
@@ -976,6 +976,284 @@ async function analyzeAflac(buffer: ArrayBuffer) {
   return analyzeAflacPolicies(policies);
 }
 
+// ============================================================
+// American Home Life Analysis Functions
+// ============================================================
+
+function parseAmericanHomeLifeCSV(fileContent: string): AmericanHomeLifePolicyData[] {
+  // Split content into lines
+  const lines = fileContent.split('\n');
+  
+  // Skip the first line (header) and use the second line as the actual header
+  const actualHeader = lines[1];
+  const dataLines = lines.slice(2); // Skip both first and second lines
+  
+  // Create CSV content with the correct header
+  const correctedContent = actualHeader + '\n' + dataLines.join('\n');
+  
+  const parsed = Papa.parse(correctedContent, {
+    header: true,
+    skipEmptyLines: true,
+  });
+  
+  return parsed.data.map((row: any) => ({
+    ISSUEDATE: row.ISSUEDATE || '',
+    STATUSCATEGORY: row.STATUSCATEGORY || '',
+    ...row
+  }));
+}
+
+function parseAmericanHomeLifeFromExcelBuffer(buffer: ArrayBuffer): AmericanHomeLifePolicyData[] {
+  const workbook = XLSX.read(buffer, { type: 'array' });
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  // Get raw rows
+  const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+  if (!rows || rows.length < 2) return [];
+  const headerRow = rows[1]; // second row contains actual headers
+  const dataRows = rows.slice(2);
+  
+  console.log('🔍 Excel header row:', headerRow);
+  
+  const policies: AmericanHomeLifePolicyData[] = dataRows
+    .filter(r => Array.isArray(r) && r.length > 0 && r.some(cell => cell !== undefined && cell !== null && String(cell).trim() !== ''))
+    .map((row, index) => {
+      const obj: any = {};
+      headerRow.forEach((h: any, idx: number) => {
+        if (h !== undefined && h !== null && String(h).trim() !== '') {
+          const key = String(h).trim();
+          const value = row[idx];
+          obj[key] = value !== undefined && value !== null ? String(value) : '';
+        }
+      });
+      
+      // Debug first few rows
+      if (index < 3) {
+        console.log(`🔍 Excel row ${index}:`, obj);
+      }
+      
+      return obj as AmericanHomeLifePolicyData;
+    });
+    
+  console.log(`📊 Parsed ${policies.length} policies from Excel`);
+  return policies;
+}
+
+function parseAmericanHomeLifeDate(dateStr: string): Date {
+  // Handle undefined, null, or empty strings
+  if (!dateStr || typeof dateStr !== 'string' || dateStr.trim() === '') {
+    throw new Error(`Invalid date string: ${dateStr}`);
+  }
+  
+  // Try different date formats that might be in Excel
+  const trimmedDate = dateStr.trim();
+  
+  // Try YYYY-MM-DD format first
+  if (trimmedDate.includes('-')) {
+    const parts = trimmedDate.split('-');
+    if (parts.length === 3) {
+      const [year, month, day] = parts.map(Number);
+      if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+        return new Date(year, month - 1, day);
+      }
+    }
+  }
+  
+  // Try MM/DD/YYYY format
+  if (trimmedDate.includes('/')) {
+    const parts = trimmedDate.split('/');
+    if (parts.length === 3) {
+      const [month, day, year] = parts.map(Number);
+      if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+        return new Date(year, month - 1, day);
+      }
+    }
+  }
+  
+  // Try to parse as a date directly
+  const parsedDate = new Date(trimmedDate);
+  if (!isNaN(parsedDate.getTime())) {
+    return parsedDate;
+  }
+  
+  throw new Error(`Unable to parse date: ${dateStr}`);
+}
+
+function analyzeAmericanHomeLifePolicies(policies: AmericanHomeLifePolicyData[]) {
+  const now = new Date();
+  const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+  const nineMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 9, now.getDate());
+
+  const timeRanges = {
+    '3': { positiveCount: 0, negativeCount: 0, positivePercentage: 0, negativePercentage: 0 },
+    '6': { positiveCount: 0, negativeCount: 0, positivePercentage: 0, negativePercentage: 0 },
+    '9': { positiveCount: 0, negativeCount: 0, positivePercentage: 0, negativePercentage: 0 },
+    'All': { positiveCount: 0, negativeCount: 0, positivePercentage: 0, negativePercentage: 0 }
+  };
+
+  const statusBreakdowns: { [key: string]: StatusBreakdown } = {
+    '3': {},
+    '6': {},
+    '9': {},
+    'All': {}
+  };
+
+  // Helper function to determine persistency impact
+  const getPersistencyImpact = (statusCategory: string) => {
+    switch (statusCategory) {
+      case 'Active':
+        return 'positive';
+      case 'Withdrawn':
+      case 'Lapsed':
+      case 'Terminated':
+      case 'Closed':
+        return 'negative';
+      default:
+        return 'neutral';
+    }
+  };
+
+  // Process each policy
+  policies.forEach(policy => {
+    try {
+      const issueDate = parseAmericanHomeLifeDate(policy.ISSUEDATE);
+      const impact = getPersistencyImpact(policy.STATUSCATEGORY);
+      
+      // Log data quality issues
+      if (impact !== 'neutral' && !policy.ISSUEDATE) {
+        console.warn(`⚠️ Policy with persistency-impacting status "${policy.STATUSCATEGORY}" has blank ISSUEDATE`);
+      }
+
+      // Only count policies that have persistency impact
+      if (impact !== 'neutral') {
+        // All time
+        if (impact === 'positive') {
+          timeRanges.All.positiveCount++;
+        } else {
+          timeRanges.All.negativeCount++;
+        }
+
+        // 3 months
+        if (issueDate >= threeMonthsAgo) {
+          if (impact === 'positive') {
+            timeRanges['3'].positiveCount++;
+          } else {
+            timeRanges['3'].negativeCount++;
+          }
+        }
+
+        // 6 months
+        if (issueDate >= sixMonthsAgo) {
+          if (impact === 'positive') {
+            timeRanges['6'].positiveCount++;
+          } else {
+            timeRanges['6'].negativeCount++;
+          }
+        }
+
+        // 9 months
+        if (issueDate >= nineMonthsAgo) {
+          if (impact === 'positive') {
+            timeRanges['9'].positiveCount++;
+          } else {
+            timeRanges['9'].negativeCount++;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`⚠️ Skipping policy with invalid date: ${policy.ISSUEDATE}`, error);
+    }
+  });
+
+  // Calculate percentages for each time range
+  Object.keys(timeRanges).forEach(range => {
+    const rangeData = timeRanges[range as keyof typeof timeRanges];
+    const total = rangeData.positiveCount + rangeData.negativeCount;
+    
+    if (total > 0) {
+      rangeData.positivePercentage = Math.round((rangeData.positiveCount / total) * 100 * 100) / 100;
+      rangeData.negativePercentage = Math.round((rangeData.negativeCount / total) * 100 * 100) / 100;
+    }
+  });
+
+  // Create status breakdowns for each time range
+  Object.keys(timeRanges).forEach(range => {
+    const rangeData = timeRanges[range as keyof typeof timeRanges];
+    const cutoffDate = range === '3' ? threeMonthsAgo : 
+                      range === '6' ? sixMonthsAgo : 
+                      range === '9' ? nineMonthsAgo : new Date(0);
+
+    const statusCounts: { [key: string]: number } = {};
+    let total = 0;
+
+    policies.forEach(policy => {
+      try {
+        const issueDate = parseAmericanHomeLifeDate(policy.ISSUEDATE);
+        if (issueDate >= cutoffDate) {
+          const status = policy.STATUSCATEGORY || 'Unknown';
+          statusCounts[status] = (statusCounts[status] || 0) + 1;
+          total++;
+        }
+      } catch (error) {
+        // Skip invalid dates
+      }
+    });
+
+    // Convert to StatusBreakdown format
+    Object.entries(statusCounts).forEach(([status, count]) => {
+      statusBreakdowns[range][status] = {
+        count,
+        percentage: total > 0 ? Math.round((count / total) * 100 * 100) / 100 : 0
+      };
+    });
+  });
+
+  return {
+    carrier: 'American Home Life',
+    timeRanges,
+    statusBreakdowns,
+    totalPolicies: policies.length,
+    persistencyRate: timeRanges.All.positivePercentage
+  };
+}
+
+
+// ============================================================
+// Lapse Policy Extraction Functions
+// ============================================================
+
+function extractLapsePoliciesFromAMAM(policies: AMAMPolicyData[]): any[] {
+  return policies
+    .filter(p => {
+      const status = p.Status;
+      return ['Act-Pastdue', 'IssNotPaid', 'Pending', 'NeedReqmnt'].includes(status);
+    })
+    .map(p => ({
+      id: p.Policy || `${p.FirstName}-${p.LastName}-${Math.random()}`,
+      carrier: 'American Amicable',
+      insuredFirstName: p.FirstName || '',
+      insuredLastName: p.LastName || '',
+      phone: p.Phone || null,
+      statuses: [p.Status],
+      daysToLapse: null
+    }));
+}
+
+function extractLapsePoliciesFromCombined(policies: CombinedPolicyData[]): any[] {
+  return policies
+    .filter(p => p.status === 'Lapse-Pending')
+    .map(p => ({
+      id: p.policy_number || `combined-${Math.random()}`,
+      carrier: 'Combined',
+      insuredFirstName: p.first_name || '',
+      insuredLastName: p.last_name || '',
+      phone: (p as any).phone || null,
+      statuses: ['Lapse-Pending'],
+      daysToLapse: null
+    }));
+}
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -1020,7 +1298,7 @@ export async function POST(request: NextRequest) {
       } else {
         const content = await americanHomeLifeFile.text();
         const policies = parseAmericanHomeLifeCSV(content);
-        const result = analyzeAmericanHomeLife(content);
+        const result = analyzeAmericanHomeLifePolicies(policies);
         results.push(result);
       }
 
