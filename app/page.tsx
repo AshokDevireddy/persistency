@@ -8,7 +8,7 @@ import LapseSection from '@/components/LapseSection';
 import { Policy } from '@/components/LapseTable';
 import { BarChart3, TrendingUp } from 'lucide-react';
 
-export type CarrierType = 'american-amicable' | 'combined' | 'american-home-life' | 'aflac' | 'aetna';
+export type CarrierType = 'american-amicable' | 'combined' | 'american-home-life' | 'aflac' | 'aetna' | 'royal-neighbors';
 
 export interface TimeRangeAnalysis {
   positivePercentage: number;
@@ -48,6 +48,7 @@ export default function Home() {
     'american-home-life': null,
     'aflac': null,
     'aetna': null,
+    'royal-neighbors': null,
   });
   const [results, setResults] = useState<PersistencyResult[] | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -170,6 +171,12 @@ export default function Home() {
               label="Aetna"
               onFileChange={handleFileChange}
               file={files['aetna']}
+            />
+            <FileUpload
+              carrier="royal-neighbors"
+              label="Royal Neighbors of America"
+              onFileChange={handleFileChange}
+              file={files['royal-neighbors']}
             />
           </div>
 

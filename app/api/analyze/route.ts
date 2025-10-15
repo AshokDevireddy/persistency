@@ -42,40 +42,46 @@ interface AmericanHomeLifePolicyData {
   [key: string]: string;
 }
 
-interface AflacPolicy {
-  COMPANYCODE?: string;
-  POLICYNUMBER: string;
-  STATUSCATEGORY?: string;
-  STATUSDISPLAYTEXT?: string;
-  PRODUCT?: string;
-  APPRECDDATE?: string;
-  APPSIGNATUREDATE?: string;
-  ORIGEFFDATE?: string;
-  PAIDTODATE?: string;
-  ISSUEDATE?: string;
-  TERMDATE?: string;
-  FIRSTNAME?: string;
-  LASTNAME?: string;
-  PHONE1?: string;
-  [key: string]: any;
+interface RoyalNeighborsPolicyData {
+  CurrentContractStatusReason1: string; // status
+  ActivationDate1: string; // effective_date
+  [key: string]: string;
 }
 
-interface AetnaPolicy {
+interface AflacPolicyData {
   COMPANYCODE?: string;
   POLICYNUMBER: string;
-  STATUSCATEGORY?: string;
+  STATUSCATEGORY: string;  // Used for persistency impact
   STATUSDISPLAYTEXT?: string;
   PRODUCT?: string;
   APPRECDDATE?: string;
   APPSIGNATUREDATE?: string;
   ORIGEFFDATE?: string;
   PAIDTODATE?: string;
-  ISSUEDATE?: string;
+  ISSUEDATE: string;       // Used for time buckets
   TERMDATE?: string;
   FIRSTNAME?: string;
   LASTNAME?: string;
   PHONE1?: string;
-  [key: string]: any;
+  [key: string]: string | undefined;
+}
+
+interface AetnaPolicyData {
+  COMPANYCODE?: string;
+  POLICYNUMBER: string;
+  STATUSCATEGORY: string;  // Used for persistency impact
+  STATUSDISPLAYTEXT?: string;
+  PRODUCT?: string;
+  APPRECDDATE?: string;
+  APPSIGNATUREDATE?: string;
+  ORIGEFFDATE?: string;
+  PAIDTODATE?: string;
+  ISSUEDATE: string;       // Used for time buckets
+  TERMDATE?: string;
+  FIRSTNAME?: string;
+  LASTNAME?: string;
+  PHONE1?: string;
+  [key: string]: string | undefined;
 }
 
 interface AnalysisResult {
@@ -97,6 +103,141 @@ interface TimeRangeAnalysis {
 }
 
 // ============================================================
+// Royal Neighbors of America Analysis Functions
+// ============================================================
+
+function parseRoyalNeighborsCSV(fileContent: string): RoyalNeighborsPolicyData[] {
+  const parsed = Papa.parse(fileContent, {
+    header: true,
+    skipEmptyLines: true,
+  });
+  return parsed.data as RoyalNeighborsPolicyData[];
+}
+
+function parseRoyalNeighborsDate(dateStr: string): Date {
+  if (!dateStr || typeof dateStr !== 'string') throw new Error('Invalid RNA date');
+  const trimmed = dateStr.trim();
+  if (trimmed.includes('-')) {
+    const [year, month, day] = trimmed.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  if (trimmed.includes('/')) {
+    const [month, day, year] = trimmed.split('/').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  const d = new Date(trimmed);
+  if (!isNaN(d.getTime())) return d;
+  throw new Error('Unable to parse RNA date');
+}
+
+function classifyRoyalNeighborsStatus(status: string): 'positive' | 'negative' | 'neutral' {
+  const s = (status || '').trim();
+  const negative = new Set([
+    'CON TERM NT NO PAY',
+    'CON TERM WITHDRAWN',
+    'CON TERM INCOMPLETE',
+    'CON TERM LAPSED',
+  ]);
+  const positive = new Set([
+    'CONTRACT ACTIVE',
+    'CON SUS DEATH PENDING',
+    'CON TERM DEATH CLAIM',
+    'CON ACT REINSTATEMENT',
+    'CON TERM MATURED',
+  ]);
+  if (positive.has(s)) return 'positive';
+  if (negative.has(s)) return 'negative';
+  return 'neutral';
+}
+
+function getRoyalNeighborsStatusBreakdownLimited(policies: RoyalNeighborsPolicyData[]): StatusBreakdown {
+  const counts: Record<string, number> = {};
+  policies.forEach(p => {
+    const status = (p.CurrentContractStatusReason1 || '').trim();
+    if (!status) return;
+    counts[status] = (counts[status] || 0) + 1;
+  });
+  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const top = entries.slice(0, 7);
+  const rest = entries.slice(7);
+  const breakdown: StatusBreakdown = {};
+  const total = entries.reduce((sum, [, c]) => sum + c, 0);
+  top.forEach(([status, count]) => {
+    breakdown[status] = {
+      count,
+      percentage: total > 0 ? Math.round((count / total) * 100 * 100) / 100 : 0,
+    };
+  });
+  const otherCount = rest.reduce((sum, [, c]) => sum + c, 0);
+  if (otherCount > 0) {
+    breakdown['Other'] = {
+      count: otherCount,
+      percentage: total > 0 ? Math.round((otherCount / total) * 100 * 100) / 100 : 0,
+    };
+  }
+  return breakdown;
+}
+
+function analyzeRoyalNeighborsTimeRange(policies: RoyalNeighborsPolicyData[]): AnalysisResult {
+  let positiveCount = 0;
+  let negativeCount = 0;
+  policies.forEach(p => {
+    const impact = classifyRoyalNeighborsStatus(p.CurrentContractStatusReason1);
+    if (impact === 'positive') positiveCount++;
+    else if (impact === 'negative') negativeCount++;
+  });
+  const total = positiveCount + negativeCount;
+  const posPct = total > 0 ? (positiveCount / total) * 100 : 0;
+  const negPct = total > 0 ? (negativeCount / total) * 100 : 0;
+  return {
+    positivePercentage: Math.round(posPct * 100) / 100,
+    positiveCount,
+    negativePercentage: Math.round(negPct * 100) / 100,
+    negativeCount,
+  };
+}
+
+function filterRoyalNeighborsByRange(policies: RoyalNeighborsPolicyData[], monthsBack: number): RoyalNeighborsPolicyData[] {
+  const now = new Date();
+  const cutoff = new Date(now.getFullYear(), now.getMonth() - monthsBack, now.getDate());
+  return policies.filter(p => {
+    try {
+      const d = parseRoyalNeighborsDate(p.ActivationDate1);
+      return d >= cutoff;
+    } catch {
+      return false;
+    }
+  });
+}
+
+async function analyzeRoyalNeighbors(fileContent: string) {
+  const policies = parseRoyalNeighborsCSV(fileContent);
+  const results: TimeRangeAnalysis = {};
+  const statusBreakdowns: { [key: string]: StatusBreakdown } = {};
+
+  const p3 = filterRoyalNeighborsByRange(policies, 3);
+  results['3'] = analyzeRoyalNeighborsTimeRange(p3);
+  statusBreakdowns['3'] = getRoyalNeighborsStatusBreakdownLimited(p3);
+
+  const p6 = filterRoyalNeighborsByRange(policies, 6);
+  results['6'] = analyzeRoyalNeighborsTimeRange(p6);
+  statusBreakdowns['6'] = getRoyalNeighborsStatusBreakdownLimited(p6);
+
+  const p9 = filterRoyalNeighborsByRange(policies, 9);
+  results['9'] = analyzeRoyalNeighborsTimeRange(p9);
+  statusBreakdowns['9'] = getRoyalNeighborsStatusBreakdownLimited(p9);
+
+  results['All'] = analyzeRoyalNeighborsTimeRange(policies);
+  statusBreakdowns['All'] = getRoyalNeighborsStatusBreakdownLimited(policies);
+
+  return {
+    carrier: 'Royal Neighbors of America',
+    timeRanges: results,
+    statusBreakdowns,
+    totalPolicies: policies.length,
+    persistencyRate: results['All'].positivePercentage
+  };
+}
 // American Amicable Analysis Functions
 // ============================================================
 
@@ -364,448 +505,11 @@ async function analyzeCombined(fileContent: string) {
 }
 
 // ============================================================
-// Aflac Analysis Functions
-// ============================================================
-
-async function parseAflacXLSX(file: File): Promise<AflacPolicy[]> {
-  const name = (file.name || '').toLowerCase();
-  if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
-    const buf = await file.arrayBuffer();
-    const wb = XLSX.read(buf, { type: 'array' });
-    const sheetName = wb.SheetNames.find((s) => s.toLowerCase().includes('policy')) || wb.SheetNames[0];
-    const ws = wb.Sheets[sheetName];
-    const rows: any[] = XLSX.utils.sheet_to_json(ws, {
-      header: 1,
-      raw: false,
-      defval: null,
-    });
-
-    if (!rows.length) return [];
-    const headerRowIdx = 1; // header is on row 2 (0-indexed row 1)
-    const headers = rows[headerRowIdx].map((h: any) => String(h ?? '').trim());
-    const dataRows = rows.slice(headerRowIdx + 1);
-    const out: AflacPolicy[] = [];
-
-    for (const r of dataRows) {
-      if (!r || r.every((x: any) => x == null || x === '')) continue;
-      const obj: any = {};
-      for (let i = 0; i < headers.length; i++) {
-        const key = headers[i] || `COL_${i}`;
-        obj[key] = r[i];
-      }
-      if (Object.values(obj).some((v) => v != null && String(v).trim() !== ''))
-        out.push(obj);
-    }
-    return out;
-  }
-
-  // Fallback for CSV
-  const txt = await file.text();
-  const parsed = Papa.parse(txt, { header: true, skipEmptyLines: true });
-  return (parsed.data as any[]).map((r) => {
-    const obj: any = {};
-    Object.keys(r).forEach((k) => (obj[String(k).trim()] = r[k]));
-    return obj as AflacPolicy;
-  });
-}
-
-function parseAflacDate(d?: string | number | null): Date | null {
-  if (!d && d !== 0) return null;
-  const s = String(d).trim();
-  if (!s) return null;
-
-  // Excel serial number
-  if (!isNaN(Number(s)) && Number(s) > 59) {
-    const base = new Date(Date.UTC(1899, 11, 30));
-    const millis = Number(s) * 86400000;
-    return new Date(base.getTime() + millis);
-  }
-
-  const t = Date.parse(s);
-  return isFinite(t) ? new Date(t) : null;
-}
-
-function aflacMonthsDiff(a: Date, b: Date): number {
-  return (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
-}
-
-function classifyAflacPolicy(policy: AflacPolicy): 'positive' | 'negative' {
-  const cat = (policy.STATUSCATEGORY || '').trim();
-  const disp = (policy.STATUSDISPLAYTEXT || '').toLowerCase();
-
-  // Death exception
-  if (disp.includes('death')) {
-    const orig = parseAflacDate(policy.ORIGEFFDATE);
-    const term = parseAflacDate(policy.TERMDATE);
-    if (orig && term && aflacMonthsDiff(orig, term) > 24) return 'positive';
-    return 'negative';
-  }
-
-  if (cat === 'Active') return 'positive';
-  return 'negative';
-}
-
-function filterAflacPoliciesByTimeRange(policies: AflacPolicy[], monthsBack: number): AflacPolicy[] {
-  const now = new Date();
-  const cutoffDate = new Date(now.getFullYear(), now.getMonth() - monthsBack, now.getDate());
-
-  return policies.filter((p) => {
-    const eff = parseAflacDate(p.ORIGEFFDATE);
-    return eff != null && eff >= cutoffDate;
-  });
-}
-
-function analyzeAflacTimeRange(policies: AflacPolicy[]): AnalysisResult {
-  let positiveCount = 0;
-  let negativeCount = 0;
-
-  policies.forEach(policy => {
-    const classification = classifyAflacPolicy(policy);
-    if (classification === 'positive') {
-      positiveCount++;
-    } else {
-      negativeCount++;
-    }
-  });
-
-  const total = positiveCount + negativeCount;
-  const positivePercentage = total > 0 ? (positiveCount / total) * 100 : 0;
-  const negativePercentage = total > 0 ? (negativeCount / total) * 100 : 0;
-
-  return {
-    positivePercentage: Math.round(positivePercentage * 100) / 100,
-    positiveCount,
-    negativePercentage: Math.round(negativePercentage * 100) / 100,
-    negativeCount
-  };
-}
-
-function getAflacStatusBreakdown(policies: AflacPolicy[]): StatusBreakdown {
-  const statusCounts: { [key: string]: number } = {};
-  const total = policies.length;
-
-  policies.forEach(policy => {
-    const status = (policy.STATUSCATEGORY || 'UNKNOWN').trim();
-    statusCounts[status] = (statusCounts[status] || 0) + 1;
-  });
-
-  const breakdown: StatusBreakdown = {};
-  Object.entries(statusCounts).forEach(([status, count]) => {
-    breakdown[status] = {
-      count,
-      percentage: total > 0 ? (count / total) * 100 : 0
-    };
-  });
-
-  return breakdown;
-}
-
-async function analyzeAflac(file: File) {
-  console.log('📊 Starting Aflac policy analysis...');
-
-  const policies = await parseAflacXLSX(file);
-  console.log(`📈 Total Aflac policies loaded: ${policies.length}`);
-
-  const results: TimeRangeAnalysis = {};
-  const statusBreakdowns: { [key: string]: StatusBreakdown } = {};
-
-  const policies3Months = filterAflacPoliciesByTimeRange(policies, 3);
-  results['3'] = analyzeAflacTimeRange(policies3Months);
-  statusBreakdowns['3'] = getAflacStatusBreakdown(policies3Months);
-
-  const policies6Months = filterAflacPoliciesByTimeRange(policies, 6);
-  results['6'] = analyzeAflacTimeRange(policies6Months);
-  statusBreakdowns['6'] = getAflacStatusBreakdown(policies6Months);
-
-  const policies9Months = filterAflacPoliciesByTimeRange(policies, 9);
-  results['9'] = analyzeAflacTimeRange(policies9Months);
-  statusBreakdowns['9'] = getAflacStatusBreakdown(policies9Months);
-
-  results['All'] = analyzeAflacTimeRange(policies);
-  statusBreakdowns['All'] = getAflacStatusBreakdown(policies);
-
-  console.log('Aflac Analysis Results:', results);
-  console.log('Aflac Status Breakdowns:', statusBreakdowns);
-
-  return {
-    carrier: 'Aflac',
-    timeRanges: results,
-    statusBreakdowns,
-    totalPolicies: policies.length,
-    persistencyRate: results['All'].positivePercentage,
-    policies // Return policies for lapse extraction
-  };
-}
-
-function extractLapsePoliciesFromAflac(policies: AflacPolicy[]): any[] {
-  return policies
-    .filter((p) => {
-      const cat = (p.STATUSCATEGORY || '').trim();
-      const disp = (p.STATUSDISPLAYTEXT || '').toLowerCase();
-      return cat === 'Lapsed' || disp.includes('lapse') || disp.includes('requested termination');
-    })
-    .map((p) => ({
-      id: p.POLICYNUMBER,
-      carrier: 'Aflac',
-      insuredFirstName: p.FIRSTNAME || '',
-      insuredLastName: p.LASTNAME || '',
-      phone: p.PHONE1 || null,
-      statuses: [p.STATUSCATEGORY, p.STATUSDISPLAYTEXT].filter(Boolean),
-      daysToLapse: null,
-    }));
-}
-
-// ============================================================
 // Aetna Analysis Functions
 // ============================================================
 
-async function parseAetnaXLSX(file: File): Promise<AetnaPolicy[]> {
-  const name = (file.name || '').toLowerCase();
-  if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
-    const buf = await file.arrayBuffer();
-    const wb = XLSX.read(buf, { type: 'array' });
-    const sheetName = wb.SheetNames.find((s) => s.toLowerCase().includes('policy')) || wb.SheetNames[0];
-    const ws = wb.Sheets[sheetName];
-    const rows: any[] = XLSX.utils.sheet_to_json(ws, {
-      header: 1,
-      raw: false,
-      defval: null,
-    });
 
-    if (!rows.length) return [];
-    const headerRowIdx = 1; // header is on row 2 (0-indexed row 1)
-    const headers = rows[headerRowIdx].map((h: any) => String(h ?? '').trim());
-    const dataRows = rows.slice(headerRowIdx + 1);
-    const out: AetnaPolicy[] = [];
-
-    for (const r of dataRows) {
-      if (!r || r.every((x: any) => x == null || x === '')) continue;
-      const obj: any = {};
-      for (let i = 0; i < headers.length; i++) {
-        const key = headers[i] || `COL_${i}`;
-        obj[key] = r[i];
-      }
-      if (Object.values(obj).some((v) => v != null && String(v).trim() !== ''))
-        out.push(obj);
-    }
-    return out;
-  }
-
-  // Fallback for CSV
-  const txt = await file.text();
-  const parsed = Papa.parse(txt, { header: true, skipEmptyLines: true });
-  return (parsed.data as any[]).map((r) => {
-    const obj: any = {};
-    Object.keys(r).forEach((k) => (obj[String(k).trim()] = r[k]));
-    return obj as AetnaPolicy;
-  });
-}
-
-function parseAetnaDate(d?: string | number | null): Date | null {
-  if (!d && d !== 0) return null;
-  const s = String(d).trim();
-  if (!s) return null;
-
-  // Excel serial number
-  if (!isNaN(Number(s)) && Number(s) > 59) {
-    const base = new Date(Date.UTC(1899, 11, 30));
-    const millis = Number(s) * 86400000;
-    return new Date(base.getTime() + millis);
-  }
-
-  const t = Date.parse(s);
-  return isFinite(t) ? new Date(t) : null;
-}
-
-function aetnaMonthsDiff(a: Date, b: Date): number {
-  return (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
-}
-
-function classifyAetnaPolicy(policy: AetnaPolicy): 'positive' | 'negative' {
-  const cat = (policy.STATUSCATEGORY || '').trim();
-  const disp = (policy.STATUSDISPLAYTEXT || '').toLowerCase();
-
-  // Death exception
-  if (disp.includes('death')) {
-    const orig = parseAetnaDate(policy.ORIGEFFDATE);
-    const term = parseAetnaDate(policy.TERMDATE);
-    if (orig && term && aetnaMonthsDiff(orig, term) > 24) return 'positive';
-    return 'negative';
-  }
-
-  if (cat === 'Active') return 'positive';
-  return 'negative';
-}
-
-function filterAetnaPoliciesByTimeRange(policies: AetnaPolicy[], monthsBack: number): AetnaPolicy[] {
-  const now = new Date();
-  const cutoffDate = new Date(now.getFullYear(), now.getMonth() - monthsBack, now.getDate());
-
-  return policies.filter((p) => {
-    const eff = parseAetnaDate(p.ORIGEFFDATE);
-    return eff != null && eff >= cutoffDate;
-  });
-}
-
-function analyzeAetnaTimeRange(policies: AetnaPolicy[]): AnalysisResult {
-  let positiveCount = 0;
-  let negativeCount = 0;
-
-  policies.forEach(policy => {
-    const classification = classifyAetnaPolicy(policy);
-    if (classification === 'positive') {
-      positiveCount++;
-    } else {
-      negativeCount++;
-    }
-  });
-
-  const total = positiveCount + negativeCount;
-  const positivePercentage = total > 0 ? (positiveCount / total) * 100 : 0;
-  const negativePercentage = total > 0 ? (negativeCount / total) * 100 : 0;
-
-  return {
-    positivePercentage: Math.round(positivePercentage * 100) / 100,
-    positiveCount,
-    negativePercentage: Math.round(negativePercentage * 100) / 100,
-    negativeCount
-  };
-}
-
-function getAetnaStatusBreakdown(policies: AetnaPolicy[]): StatusBreakdown {
-  const statusCounts: { [key: string]: number } = {};
-  const total = policies.length;
-
-  policies.forEach(policy => {
-    const status = (policy.STATUSCATEGORY || 'UNKNOWN').trim();
-    statusCounts[status] = (statusCounts[status] || 0) + 1;
-  });
-
-  const breakdown: StatusBreakdown = {};
-  Object.entries(statusCounts).forEach(([status, count]) => {
-    breakdown[status] = {
-      count,
-      percentage: total > 0 ? (count / total) * 100 : 0
-    };
-  });
-
-  return breakdown;
-}
-
-async function analyzeAetna(file: File) {
-  console.log('📊 Starting Aetna policy analysis...');
-
-  const policies = await parseAetnaXLSX(file);
-  console.log(`📈 Total Aetna policies loaded: ${policies.length}`);
-
-  const results: TimeRangeAnalysis = {};
-  const statusBreakdowns: { [key: string]: StatusBreakdown } = {};
-
-  const policies3Months = filterAetnaPoliciesByTimeRange(policies, 3);
-  results['3'] = analyzeAetnaTimeRange(policies3Months);
-  statusBreakdowns['3'] = getAetnaStatusBreakdown(policies3Months);
-
-  const policies6Months = filterAetnaPoliciesByTimeRange(policies, 6);
-  results['6'] = analyzeAetnaTimeRange(policies6Months);
-  statusBreakdowns['6'] = getAetnaStatusBreakdown(policies6Months);
-
-  const policies9Months = filterAetnaPoliciesByTimeRange(policies, 9);
-  results['9'] = analyzeAetnaTimeRange(policies9Months);
-  statusBreakdowns['9'] = getAetnaStatusBreakdown(policies9Months);
-
-  results['All'] = analyzeAetnaTimeRange(policies);
-  statusBreakdowns['All'] = getAetnaStatusBreakdown(policies);
-
-  console.log('Aetna Analysis Results:', results);
-  console.log('Aetna Status Breakdowns:', statusBreakdowns);
-
-  return {
-    carrier: 'Aetna',
-    timeRanges: results,
-    statusBreakdowns,
-    totalPolicies: policies.length,
-    persistencyRate: results['All'].positivePercentage,
-    policies // Return policies for lapse extraction
-  };
-}
-
-function extractLapsePoliciesFromAetna(policies: AetnaPolicy[]): any[] {
-  return policies
-    .filter((p) => {
-      const cat = (p.STATUSCATEGORY || '').trim();
-      const disp = (p.STATUSDISPLAYTEXT || '').toLowerCase();
-      return cat === 'Lapsed' || disp.includes('lapse') || disp.includes('requested termination');
-    })
-    .map((p) => ({
-      id: p.POLICYNUMBER,
-      carrier: 'Aetna',
-      insuredFirstName: p.FIRSTNAME || '',
-      insuredLastName: p.LASTNAME || '',
-      phone: p.PHONE1 || null,
-      statuses: [p.STATUSCATEGORY, p.STATUSDISPLAYTEXT].filter(Boolean),
-      daysToLapse: null,
-    }));
-}
-
-// ============================================================
-// API Route Handler
-// ============================================================
-
-function extractLapsePoliciesFromAMAM(policies: AMAMPolicyData[]): any[] {
-  return policies
-    .filter(p => {
-      const status = p.Status;
-      return ['Act-Pastdue', 'IssNotPaid', 'Pending', 'NeedReqmnt'].includes(status);
-    })
-    .map(p => ({
-      id: p.Policy || `${p.FirstName}-${p.LastName}-${Math.random()}`,
-      carrier: 'American Amicable',
-      insuredFirstName: p.FirstName || '',
-      insuredLastName: p.LastName || '',
-      phone: p.Phone || null,
-      statuses: [p.Status],
-      daysToLapse: null
-    }));
-}
-
-function extractLapsePoliciesFromCombined(policies: CombinedPolicyData[]): any[] {
-  return policies
-    .filter(p => p.status === 'Lapse-Pending')
-    .map(p => ({
-      id: p.policy_number || `combined-${Math.random()}`,
-      carrier: 'Combined',
-      insuredFirstName: p.first_name || '',
-      insuredLastName: p.last_name || '',
-      phone: (p as any).phone || null,
-      statuses: ['Lapse-Pending'],
-      daysToLapse: null
-    }));
-}
-
-// ============================================================
-// American Home Life Analysis Functions
-// ============================================================
-
-function parseAmericanHomeLifeCSV(fileContent: string): AmericanHomeLifePolicyData[] {
-  // Split content into lines
-  const lines = fileContent.split('\n');
-  
-  // Skip the first line (header) and use the second line as the actual header
-  const actualHeader = lines[1];
-  const dataLines = lines.slice(2); // Skip both first and second lines
-  
-  // Create CSV content with the correct header
-  const correctedContent = actualHeader + '\n' + dataLines.join('\n');
-  
-  const parsed = Papa.parse(correctedContent, {
-    header: true,
-    skipEmptyLines: true,
-  });
-
-  return parsed.data as AmericanHomeLifePolicyData[];
-}
-
-function parseAmericanHomeLifeDate(dateStr: string): Date {
+function parseAetnaDate(dateStr: string): Date {
   // Handle undefined, null, or empty strings
   if (!dateStr || typeof dateStr !== 'string' || dateStr.trim() === '') {
     throw new Error(`Invalid date string: ${dateStr}`);
@@ -845,14 +549,50 @@ function parseAmericanHomeLifeDate(dateStr: string): Date {
   throw new Error(`Unable to parse date: ${dateStr}`);
 }
 
-function analyzeAmericanHomeLifePolicies(policies: AmericanHomeLifePolicyData[]) {
-  console.log('📊 Starting American Home Life policy analysis...');
-  console.log(`📈 Total AHL policies loaded: ${policies.length}`);
+function parseAetnaFromExcelBuffer(buffer: ArrayBuffer): AetnaPolicyData[] {
+  const workbook = XLSX.read(buffer, { type: 'array' });
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  // Get raw rows
+  const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+  if (!rows || rows.length < 2) return [];
+  const headerRow = rows[1]; // second row contains actual headers
+  const dataRows = rows.slice(2);
+  
+  console.log('🔍 Aetna Excel header row:', headerRow);
+  
+  const policies: AetnaPolicyData[] = dataRows
+    .filter(r => Array.isArray(r) && r.length > 0 && r.some(cell => cell !== undefined && cell !== null && String(cell).trim() !== ''))
+    .map((row, index) => {
+      const obj: any = {};
+      headerRow.forEach((h: any, idx: number) => {
+        if (h !== undefined && h !== null && String(h).trim() !== '') {
+          const key = String(h).trim();
+          const value = row[idx];
+          obj[key] = value !== undefined && value !== null ? String(value) : '';
+        }
+      });
+      
+      // Debug first few rows
+      if (index < 3) {
+        console.log(`🔍 Aetna Excel row ${index}:`, obj);
+      }
+      
+      return obj as AetnaPolicyData;
+    });
+    
+  console.log(`📊 Parsed ${policies.length} Aetna policies from Excel`);
+  return policies;
+}
+
+function analyzeAetnaPolicies(policies: AetnaPolicyData[]) {
+  console.log('📊 Starting Aetna policy analysis...');
+  console.log(`📈 Total Aetna policies loaded: ${policies.length}`);
   
   // Debug: Log the first policy to see what fields are available
   if (policies.length > 0) {
-    console.log('🔍 First policy fields:', Object.keys(policies[0]));
-    console.log('🔍 First policy sample:', policies[0]);
+    console.log('🔍 First Aetna policy fields:', Object.keys(policies[0]));
+    console.log('🔍 First Aetna policy sample:', policies[0]);
   }
   
   const timeRanges = {
@@ -902,7 +642,7 @@ function analyzeAmericanHomeLifePolicies(policies: AmericanHomeLifePolicyData[])
       
       // Log cases where policy impacts persistency but ISSUEDATE is blank/invalid
       if (persistencyImpact !== 'neutral' && (!policy.ISSUEDATE || policy.ISSUEDATE.trim() === '')) {
-        console.log(`🚨 DATA QUALITY ISSUE - Policy ${index}: STATUSCATEGORY="${statusCategory}" impacts persistency but ISSUEDATE is blank/invalid:`, {
+        console.log(`🚨 DATA QUALITY ISSUE - Aetna Policy ${index}: STATUSCATEGORY="${statusCategory}" impacts persistency but ISSUEDATE is blank/invalid:`, {
           policyIndex: index,
           statusCategory: statusCategory,
           issueDate: policy.ISSUEDATE,
@@ -913,12 +653,12 @@ function analyzeAmericanHomeLifePolicies(policies: AmericanHomeLifePolicyData[])
       
       // Check if ISSUEDATE exists and is valid
       if (!policy.ISSUEDATE || typeof policy.ISSUEDATE !== 'string') {
-        console.log(`⚠️ Skipping policy ${index}: missing or invalid ISSUEDATE`);
+        console.log(`⚠️ Skipping Aetna policy ${index}: missing or invalid ISSUEDATE`);
         skippedCount++;
         return;
       }
       
-      const issueDate = parseAmericanHomeLifeDate(policy.ISSUEDATE);
+      const issueDate = parseAetnaDate(policy.ISSUEDATE);
       const monthsSinceIssue = Math.floor(
         (currentDate.getTime() - issueDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
       );
@@ -926,81 +666,126 @@ function analyzeAmericanHomeLifePolicies(policies: AmericanHomeLifePolicyData[])
       const isPositive = persistencyImpact === 'positive';
       const isNegative = persistencyImpact === 'negative';
 
-    // Update time ranges - only count policies with persistency impact
-    Object.keys(timeRanges).forEach(range => {
-      const rangeMonths = range === 'All' ? Infinity : parseInt(range);
-      if (monthsSinceIssue <= rangeMonths) {
-        // Count persistency impact for time ranges
-        if (persistencyImpact !== 'neutral') {
-          if (isPositive) {
-            timeRanges[range as keyof typeof timeRanges].positiveCount++;
-          } else if (isNegative) {
-            timeRanges[range as keyof typeof timeRanges].negativeCount++;
+      // Update time ranges - only count policies with persistency impact
+      Object.keys(timeRanges).forEach(range => {
+        const rangeMonths = range === 'All' ? Infinity : parseInt(range);
+        if (monthsSinceIssue <= rangeMonths) {
+          // Count persistency impact for time ranges
+          if (persistencyImpact !== 'neutral') {
+            if (isPositive) {
+              timeRanges[range as keyof typeof timeRanges].positiveCount++;
+            } else if (isNegative) {
+              timeRanges[range as keyof typeof timeRanges].negativeCount++;
+            }
           }
-        }
 
-        // Update status breakdown using STATUSCATEGORY - include ALL statuses
-        const status = statusCategory;
-        if (!statusBreakdowns[range as keyof typeof statusBreakdowns][status]) {
-          statusBreakdowns[range as keyof typeof statusBreakdowns][status] = { count: 0, percentage: 0 };
+          // Update status breakdown using STATUSCATEGORY - include ALL statuses
+          const status = statusCategory;
+          if (!statusBreakdowns[range as keyof typeof statusBreakdowns][status]) {
+            statusBreakdowns[range as keyof typeof statusBreakdowns][status] = { count: 0, percentage: 0 };
+          }
+          statusBreakdowns[range as keyof typeof statusBreakdowns][status].count++;
         }
-        statusBreakdowns[range as keyof typeof statusBreakdowns][status].count++;
+      });
+      
+      processedCount++;
+      } catch (error) {
+        console.log(`⚠️ Error processing Aetna policy ${index}:`, error);
+        skippedCount++;
       }
     });
     
-    processedCount++;
-    } catch (error) {
-      console.log(`⚠️ Error processing policy ${index}:`, error);
-      skippedCount++;
-    }
-  });
-  
-  console.log(`✅ Processed ${processedCount} policies, skipped ${skippedCount} policies`);
+    console.log(`✅ Processed ${processedCount} Aetna policies, skipped ${skippedCount} policies`);
 
-  // Calculate percentages
-  Object.keys(timeRanges).forEach(range => {
-    const rangeData = timeRanges[range as keyof typeof timeRanges];
-    const persistencyTotal = rangeData.positiveCount + rangeData.negativeCount;
-    
-    if (persistencyTotal > 0) {
-      rangeData.positivePercentage = Math.round((rangeData.positiveCount / persistencyTotal) * 100 * 100) / 100;
-      rangeData.negativePercentage = Math.round((rangeData.negativeCount / persistencyTotal) * 100 * 100) / 100;
-    } else {
-      // Set to 0 if no policies with persistency impact
-      rangeData.positivePercentage = 0;
-      rangeData.negativePercentage = 0;
-    }
+    // Calculate percentages
+    Object.keys(timeRanges).forEach(range => {
+      const rangeData = timeRanges[range as keyof typeof timeRanges];
+      const persistencyTotal = rangeData.positiveCount + rangeData.negativeCount;
+      
+      if (persistencyTotal > 0) {
+        rangeData.positivePercentage = Math.round((rangeData.positiveCount / persistencyTotal) * 100 * 100) / 100;
+        rangeData.negativePercentage = Math.round((rangeData.negativeCount / persistencyTotal) * 100 * 100) / 100;
+      } else {
+        // Set to 0 if no policies with persistency impact
+        rangeData.positivePercentage = 0;
+        rangeData.negativePercentage = 0;
+      }
 
-    // Calculate status percentages - use total count of ALL policies in this time range
-    const statusData = statusBreakdowns[range as keyof typeof statusBreakdowns];
-    const totalStatusCount = Object.values(statusData).reduce((sum, status) => sum + status.count, 0);
-    Object.keys(statusData).forEach(status => {
-      statusData[status].percentage = totalStatusCount > 0 ? Math.round((statusData[status].count / totalStatusCount) * 100 * 100) / 100 : 0;
+      // Calculate status percentages - use total count of ALL policies in this time range
+      const statusData = statusBreakdowns[range as keyof typeof statusBreakdowns];
+      const totalStatusCount = Object.values(statusData).reduce((sum, status) => sum + status.count, 0);
+      Object.keys(statusData).forEach(status => {
+        statusData[status].percentage = totalStatusCount > 0 ? Math.round((statusData[status].count / totalStatusCount) * 100 * 100) / 100 : 0;
+      });
     });
-  });
 
-  const results = {
-    '3': timeRanges['3'] as AnalysisResult,
-    '6': timeRanges['6'] as AnalysisResult,
-    '9': timeRanges['9'] as AnalysisResult,
-    'All': timeRanges['All'] as AnalysisResult
-  };
+    const results = {
+      '3': timeRanges['3'] as AnalysisResult,
+      '6': timeRanges['6'] as AnalysisResult,
+      '9': timeRanges['9'] as AnalysisResult,
+      'All': timeRanges['All'] as AnalysisResult
+    };
 
-  return {
-    carrier: 'American Home Life',
-    timeRanges: results,
-    statusBreakdowns,
-    totalPolicies: policies.length,
-    persistencyRate: results['All'].positivePercentage
-  };
+    return {
+      carrier: 'Aetna',
+      timeRanges: results,
+      statusBreakdowns,
+      totalPolicies: policies.length,
+      persistencyRate: results['All'].positivePercentage
+    };
 }
 
-async function analyzeAmericanHomeLife(fileContent: string) {
-  const policies = parseAmericanHomeLifeCSV(fileContent);
-  return analyzeAmericanHomeLifePolicies(policies);
+async function analyzeAetna(buffer: ArrayBuffer) {
+  const policies = parseAetnaFromExcelBuffer(buffer);
+  return analyzeAetnaPolicies(policies);
 }
 
-function parseAmericanHomeLifeFromExcelBuffer(buffer: ArrayBuffer): AmericanHomeLifePolicyData[] {
+// ============================================================
+// Aflac Analysis Functions
+// ============================================================
+
+
+function parseAflacDate(dateStr: string): Date {
+  // Handle undefined, null, or empty strings
+  if (!dateStr || typeof dateStr !== 'string' || dateStr.trim() === '') {
+    throw new Error(`Invalid date string: ${dateStr}`);
+  }
+  
+  // Try different date formats that might be in Excel
+  const trimmedDate = dateStr.trim();
+  
+  // Try YYYY-MM-DD format first
+  if (trimmedDate.includes('-')) {
+    const parts = trimmedDate.split('-');
+    if (parts.length === 3) {
+      const [year, month, day] = parts.map(Number);
+      if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+        return new Date(year, month - 1, day);
+      }
+    }
+  }
+  
+  // Try MM/DD/YYYY format
+  if (trimmedDate.includes('/')) {
+    const parts = trimmedDate.split('/');
+    if (parts.length === 3) {
+      const [month, day, year] = parts.map(Number);
+      if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+        return new Date(year, month - 1, day);
+      }
+    }
+  }
+  
+  // Try to parse as a date directly
+  const parsedDate = new Date(trimmedDate);
+  if (!isNaN(parsedDate.getTime())) {
+    return parsedDate;
+  }
+  
+  throw new Error(`Unable to parse date: ${dateStr}`);
+}
+
+function parseAflacFromExcelBuffer(buffer: ArrayBuffer): AflacPolicyData[] {
   const workbook = XLSX.read(buffer, { type: 'array' });
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
@@ -1010,9 +795,9 @@ function parseAmericanHomeLifeFromExcelBuffer(buffer: ArrayBuffer): AmericanHome
   const headerRow = rows[1]; // second row contains actual headers
   const dataRows = rows.slice(2);
   
-  console.log('🔍 Excel header row:', headerRow);
+  console.log('🔍 Aflac Excel header row:', headerRow);
   
-  const policies: AmericanHomeLifePolicyData[] = dataRows
+  const policies: AflacPolicyData[] = dataRows
     .filter(r => Array.isArray(r) && r.length > 0 && r.some(cell => cell !== undefined && cell !== null && String(cell).trim() !== ''))
     .map((row, index) => {
       const obj: any = {};
@@ -1026,14 +811,169 @@ function parseAmericanHomeLifeFromExcelBuffer(buffer: ArrayBuffer): AmericanHome
       
       // Debug first few rows
       if (index < 3) {
-        console.log(`🔍 Excel row ${index}:`, obj);
+        console.log(`🔍 Aflac Excel row ${index}:`, obj);
       }
       
-      return obj as AmericanHomeLifePolicyData;
+      return obj as AflacPolicyData;
     });
     
-  console.log(`📊 Parsed ${policies.length} policies from Excel`);
+  console.log(`📊 Parsed ${policies.length} Aflac policies from Excel`);
   return policies;
+}
+
+function analyzeAflacPolicies(policies: AflacPolicyData[]) {
+  console.log('📊 Starting Aflac policy analysis...');
+  console.log(`📈 Total Aflac policies loaded: ${policies.length}`);
+  
+  // Debug: Log the first policy to see what fields are available
+  if (policies.length > 0) {
+    console.log('🔍 First Aflac policy fields:', Object.keys(policies[0]));
+    console.log('🔍 First Aflac policy sample:', policies[0]);
+  }
+  
+  const timeRanges = {
+    '3': { positiveCount: 0, negativeCount: 0, positivePercentage: 0, negativePercentage: 0 },
+    '6': { positiveCount: 0, negativeCount: 0, positivePercentage: 0, negativePercentage: 0 },
+    '9': { positiveCount: 0, negativeCount: 0, positivePercentage: 0, negativePercentage: 0 },
+    'All': { positiveCount: 0, negativeCount: 0, positivePercentage: 0, negativePercentage: 0 }
+  };
+
+  const statusBreakdowns = {
+    '3': {} as StatusBreakdown,
+    '6': {} as StatusBreakdown,
+    '9': {} as StatusBreakdown,
+    'All': {} as StatusBreakdown
+  };
+
+  const currentDate = new Date();
+  let processedCount = 0;
+  let skippedCount = 0;
+  
+  policies.forEach((policy, index) => {
+    try {
+      // Determine persistency impact based on STATUSCATEGORY first
+      const statusCategory = policy.STATUSCATEGORY?.trim();
+      let persistencyImpact: 'positive' | 'negative' | 'neutral' = 'neutral';
+      
+      switch (statusCategory) {
+        case 'Active':
+          persistencyImpact = 'positive';
+          break;
+        case 'Withdrawn':
+        case 'Lapsed':
+        case 'Terminated':
+        case 'Closed':
+          persistencyImpact = 'negative';
+          break;
+        case 'Decline':
+        case 'Issued Not In Force':
+        case 'Pending':
+        case 'Not Taken':
+        case 'LM App Decline':
+          persistencyImpact = 'neutral';
+          break;
+        default:
+          persistencyImpact = 'neutral';
+      }
+      
+      // Log cases where policy impacts persistency but ISSUEDATE is blank/invalid
+      if (persistencyImpact !== 'neutral' && (!policy.ISSUEDATE || policy.ISSUEDATE.trim() === '')) {
+        console.log(`🚨 DATA QUALITY ISSUE - Aflac Policy ${index}: STATUSCATEGORY="${statusCategory}" impacts persistency but ISSUEDATE is blank/invalid:`, {
+          policyIndex: index,
+          statusCategory: statusCategory,
+          issueDate: policy.ISSUEDATE,
+          persistencyImpact: persistencyImpact,
+          policyData: policy
+        });
+      }
+      
+      // Check if ISSUEDATE exists and is valid
+      if (!policy.ISSUEDATE || typeof policy.ISSUEDATE !== 'string') {
+        console.log(`⚠️ Skipping Aflac policy ${index}: missing or invalid ISSUEDATE`);
+        skippedCount++;
+        return;
+      }
+      
+      const issueDate = parseAflacDate(policy.ISSUEDATE);
+      const monthsSinceIssue = Math.floor(
+        (currentDate.getTime() - issueDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
+      );
+    
+      const isPositive = persistencyImpact === 'positive';
+      const isNegative = persistencyImpact === 'negative';
+
+      // Update time ranges - only count policies with persistency impact
+      Object.keys(timeRanges).forEach(range => {
+        const rangeMonths = range === 'All' ? Infinity : parseInt(range);
+        if (monthsSinceIssue <= rangeMonths) {
+          // Count persistency impact for time ranges
+          if (persistencyImpact !== 'neutral') {
+            if (isPositive) {
+              timeRanges[range as keyof typeof timeRanges].positiveCount++;
+            } else if (isNegative) {
+              timeRanges[range as keyof typeof timeRanges].negativeCount++;
+            }
+          }
+
+          // Update status breakdown using STATUSCATEGORY - include ALL statuses
+          const status = statusCategory;
+          if (!statusBreakdowns[range as keyof typeof statusBreakdowns][status]) {
+            statusBreakdowns[range as keyof typeof statusBreakdowns][status] = { count: 0, percentage: 0 };
+          }
+          statusBreakdowns[range as keyof typeof statusBreakdowns][status].count++;
+        }
+      });
+      
+      processedCount++;
+      } catch (error) {
+        console.log(`⚠️ Error processing Aflac policy ${index}:`, error);
+        skippedCount++;
+      }
+    });
+    
+    console.log(`✅ Processed ${processedCount} Aflac policies, skipped ${skippedCount} policies`);
+
+    // Calculate percentages
+    Object.keys(timeRanges).forEach(range => {
+      const rangeData = timeRanges[range as keyof typeof timeRanges];
+      const persistencyTotal = rangeData.positiveCount + rangeData.negativeCount;
+      
+      if (persistencyTotal > 0) {
+        rangeData.positivePercentage = Math.round((rangeData.positiveCount / persistencyTotal) * 100 * 100) / 100;
+        rangeData.negativePercentage = Math.round((rangeData.negativeCount / persistencyTotal) * 100 * 100) / 100;
+      } else {
+        // Set to 0 if no policies with persistency impact
+        rangeData.positivePercentage = 0;
+        rangeData.negativePercentage = 0;
+      }
+
+      // Calculate status percentages - use total count of ALL policies in this time range
+      const statusData = statusBreakdowns[range as keyof typeof statusBreakdowns];
+      const totalStatusCount = Object.values(statusData).reduce((sum, status) => sum + status.count, 0);
+      Object.keys(statusData).forEach(status => {
+        statusData[status].percentage = totalStatusCount > 0 ? Math.round((statusData[status].count / totalStatusCount) * 100 * 100) / 100 : 0;
+      });
+    });
+
+    const results = {
+      '3': timeRanges['3'] as AnalysisResult,
+      '6': timeRanges['6'] as AnalysisResult,
+      '9': timeRanges['9'] as AnalysisResult,
+      'All': timeRanges['All'] as AnalysisResult
+    };
+
+    return {
+      carrier: 'Aflac',
+      timeRanges: results,
+      statusBreakdowns,
+      totalPolicies: policies.length,
+      persistencyRate: results['All'].positivePercentage
+    };
+}
+
+async function analyzeAflac(buffer: ArrayBuffer) {
+  const policies = parseAflacFromExcelBuffer(buffer);
+  return analyzeAflacPolicies(policies);
 }
 
 export async function POST(request: NextRequest) {
@@ -1087,38 +1027,42 @@ export async function POST(request: NextRequest) {
       // Note: No lapse policy extraction for American Home Life as per requirements
     }
 
-    // Process Aflac
-    const aflacFile = formData.get('aflac') as File | null;
-    if (aflacFile) {
-      const result = await analyzeAflac(aflacFile);
-      results.push({
-        carrier: result.carrier,
-        timeRanges: result.timeRanges,
-        statusBreakdowns: result.statusBreakdowns,
-        totalPolicies: result.totalPolicies,
-        persistencyRate: result.persistencyRate,
-      });
-
-      // Extract lapse policies
-      const aflacLapsePolicies = extractLapsePoliciesFromAflac(result.policies);
-      lapsePolicies.push(...aflacLapsePolicies);
+    // Process Royal Neighbors of America (CSV only per spec)
+    const royalNeighborsFile = formData.get('royal-neighbors') as File | null;
+    if (royalNeighborsFile) {
+      const content = await royalNeighborsFile.text();
+      const result = await analyzeRoyalNeighbors(content);
+      results.push(result);
     }
 
-    // Process Aetna
+    // Process Aflac (Excel only)
+    const aflacFile = formData.get('aflac') as File | null;
+    if (aflacFile) {
+      const fileName = aflacFile.name?.toLowerCase() || '';
+      if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+        const arrayBuffer = await aflacFile.arrayBuffer();
+        const result = await analyzeAflac(arrayBuffer);
+        results.push(result);
+      } else {
+        console.log('⚠️ Aflac file must be Excel format (.xlsx or .xls)');
+      }
+
+      // Note: No lapse policy extraction for Aflac as per requirements
+    }
+
+    // Process Aetna (Excel only)
     const aetnaFile = formData.get('aetna') as File | null;
     if (aetnaFile) {
-      const result = await analyzeAetna(aetnaFile);
-      results.push({
-        carrier: result.carrier,
-        timeRanges: result.timeRanges,
-        statusBreakdowns: result.statusBreakdowns,
-        totalPolicies: result.totalPolicies,
-        persistencyRate: result.persistencyRate,
-      });
+      const fileName = aetnaFile.name?.toLowerCase() || '';
+      if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+        const arrayBuffer = await aetnaFile.arrayBuffer();
+        const result = await analyzeAetna(arrayBuffer);
+        results.push(result);
+      } else {
+        console.log('⚠️ Aetna file must be Excel format (.xlsx or .xls)');
+      }
 
-      // Extract lapse policies
-      const aetnaLapsePolicies = extractLapsePoliciesFromAetna(result.policies);
-      lapsePolicies.push(...aetnaLapsePolicies);
+      // Note: No lapse policy extraction for Aetna as per requirements
     }
 
     if (results.length === 0) {
